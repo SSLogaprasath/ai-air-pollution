@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Forecaster</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            color: #8892b0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        select, button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select {
+            background: #1f2937;
+            color: #fff;
+            border: 1px solid #374151;
+            min-width: 200px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #00d9ff;
+        }
+
+        .btn-predict {
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #1a1a2e;
+            font-weight: 600;
+            padding: 12px 40px;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 217, 255, 0.3);
+        }
+
+        .btn-predict:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1000px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #00d9ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #map {
+            height: 500px;
+            border-radius: 12px;
+            z-index: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #8892b0;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        .explanation-box {
+            background: rgba(0, 217, 255, 0.1);
+            border-left: 4px solid #00d9ff;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 15px;
+        }
+
+        .explanation-box p {
+            color: #ccd6f6;
+            line-height: 1.6;
+        }
+
+        .influence-list {
+            margin-top: 15px;
+        }
+
+        .influence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .influence-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            border-radius: 2px;
+            margin-top: 5px;
+        }
+
+        .sensor-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .sensor-table th, .sensor-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sensor-table th {
+            color: #8892b0;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        .aqi-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .aqi-good { background: #00e676; color: #000; }
+        .aqi-moderate { background: #ffeb3b; color: #000; }
+        .aqi-unhealthy-sensitive { background: #ff9800; color: #000; }
+        .aqi-unhealthy { background: #f44336; color: #fff; }
+        .aqi-very-unhealthy { background: #9c27b0; color: #fff; }
+        .aqi-hazardous { background: #7b1fa2; color: #fff; }
+
+        .health-warning-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .health-warning-box h3 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .health-warning-box p {
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .health-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .health-section h4 {
+            color: #00d9ff;
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .health-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .health-section li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+            color: #ccd6f6;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .health-section li:last-child {
+            border-bottom: none;
+        }
+
+        .health-section li::before {
+            content: "•";
+            color: #00d9ff;
+            font-weight: bold;
+        }
+
+        .exposure-time {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(0, 217, 255, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 217, 255, 0.2);
+            border-top-color: #00d9ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.2);
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #00d9ff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌍 Air Quality Forecaster</h1>
+            <p>Real-time PM2.5 predictions using Spatiotemporal Graph Transformer</p>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Select City</label>
+                <select id="citySelect">
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">Delhi</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="chennai">Chennai</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Sensor Radius</label>
+                <select id="radiusSelect">
+                    <option value="10">10 km</option>
+                    <option value="15" selected>15 km</option>
+                    <option value="25">25 km</option>
+                    <option value="50">50 km</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button class="btn-predict" id="predictBtn" onclick="getPrediction()">
+                    🔮 Get Forecast
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Fetching sensor data and running model inference...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage">
+            <strong>Error:</strong> <span id="errorText"></span>
+        </div>
+
+        <div class="main-content" id="mainContent">
+            <div class="card">
+                <h2>📍 Sensor Map</h2>
+                <div id="map"></div>
+            </div>
+
+            <div class="sidebar">
+                <div class="card">
+                    <h2>📊 City Overview</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="avgPm25">--</div>
+                            <div class="stat-label">Avg PM2.5</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="numSensors">--</div>
+                            <div class="stat-label">Sensors</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="numEdges">--</div>
+                            <div class="stat-label">Connections</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="aqiLevel">--</div>
+                            <div class="stat-label">AQI Level</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <h2>🧠 Model Explanation</h2>
+                    <div class="explanation-box">
+                        <p id="explanationText">Run a prediction to see what influenced the forecast.</p>
+                    </div>
+                    
+                    <div class="influence-list" id="spatialInfluences">
+                        <h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Spatial Influences</h3>
+                        <!-- Filled dynamically -->
+                    </div>
+
+                    <div class="influence-list" id="temporalInfluences">
+                        <h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Temporal Influences</h3>
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Impact Section -->
+        <div class="card" style="margin-top: 20px;" id="healthCard">
+            <h2>⚠️ Health Impact Assessment</h2>
+            <div id="healthContent">
+                <p style="color: #8892b0; text-align: center;">Run a prediction to see health impact information</p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;" id="sensorTableCard">
+            <h2>📋 Sensor Predictions</h2>
+            <table class="sensor-table">
+                <thead>
+                    <tr>
+                        <th>Station ID</th>
+                        <th>Location</th>
+                        <th>Predicted PM2.5</th>
+                        <th>Data Coverage</th>
+                        <th>AQI Category</th>
+                    </tr>
+                </thead>
+                <tbody id="sensorTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #8892b0;">
+                            Select a city and click "Get Forecast" to see predictions
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p>Powered by <a href="#">STGraphTransformer</a> | Data from <a href="https://openaq.org" target="_blank">OpenAQ</a></p>
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let map = null;
+        let markers = [];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([19.076, 72.8777], 11);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        // Get AQI category from PM2.5 value
+        function getAqiCategory(pm25) {
+            if (pm25 <= 12) return { label: 'Good', class: 'aqi-good' };
+            if (pm25 <= 35.4) return { label: 'Moderate', class: 'aqi-moderate' };
+            if (pm25 <= 55.4) return { label: 'Unhealthy (Sensitive)', class: 'aqi-unhealthy-sensitive' };
+            if (pm25 <= 150.4) return { label: 'Unhealthy', class: 'aqi-unhealthy' };
+            if (pm25 <= 250.4) return { label: 'Very Unhealthy', class: 'aqi-very-unhealthy' };
+            return { label: 'Hazardous', class: 'aqi-hazardous' };
+        }
+
+        // Get marker color based on PM2.5
+        function getMarkerColor(pm25) {
+            if (pm25 <= 12) return '#00e676';
+            if (pm25 <= 35.4) return '#ffeb3b';
+            if (pm25 <= 55.4) return '#ff9800';
+            if (pm25 <= 150.4) return '#f44336';
+            if (pm25 <= 250.4) return '#9c27b0';
+            return '#7b1fa2';
+        }
+
+        // Clear existing markers
+        function clearMarkers() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+
+        // Add markers to map
+        function addMarkers(predictions) {
+            clearMarkers();
+            
+            const bounds = [];
+            predictions.forEach(sensor => {
+                const color = getMarkerColor(sensor.predicted_pm25);
+                const aqi = getAqiCategory(sensor.predicted_pm25);
+                
+                const marker = L.circleMarker([sensor.latitude, sensor.longitude], {
+                    radius: 12,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="text-align: center; min-width: 150px;">
+                        <strong>Station ${sensor.location_id}</strong><br>
+                        <span style="font-size: 1.5rem; color: ${color};">${sensor.predicted_pm25.toFixed(1)}</span>
+                        <span style="font-size: 0.8rem;">µg/m³</span><br>
+                        <span class="aqi-badge ${aqi.class}" style="display: inline-block; margin-top: 5px;">${aqi.label}</span><br>
+                        <small style="color: #888;">Coverage: ${sensor.data_coverage.toFixed(1)}%</small>
+                    </div>
+                `);
+
+                markers.push(marker);
+                bounds.push([sensor.latitude, sensor.longitude]);
+            });
+
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // Update stats display
+        function updateStats(data) {
+            document.getElementById('avgPm25').textContent = data.city_average_pm25.toFixed(1);
+            document.getElementById('numSensors').textContent = data.num_sensors;
+            document.getElementById('numEdges').textContent = data.num_edges;
+            
+            const aqi = getAqiCategory(data.city_average_pm25);
+            const aqiEl = document.getElementById('aqiLevel');
+            aqiEl.textContent = aqi.label.split(' ')[0];
+        }
+
+        // Update explanation
+        function updateExplanation(explanation) {
+            document.getElementById('explanationText').textContent = explanation.summary;
+
+            // Spatial influences
+            const spatialEl = document.getElementById('spatialInfluences');
+            if (explanation.top_spatial_influences && explanation.top_spatial_influences.length > 0) {
+                let html = '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Spatial Influences</h3>';
+                explanation.top_spatial_influences.slice(0, 3).forEach(inf => {
+                    const pct = (inf.weight * 100).toFixed(1);
+                    html += `
+                        <div class="influence-item">
+                            <div>
+                                <span>Station ${inf.source_id} → ${inf.target_id}</span>
+                                <div class="influence-bar" style="width: ${pct}%;"></div>
+                            </div>
+                            <span style="color: #00d9ff;">${pct}%</span>
+                        </div>
+                    `;
+                });
+                spatialEl.innerHTML = html;
+            }
+
+            // Temporal influences
+            const temporalEl = document.getElementById('temporalInfluences');
+            if (explanation.top_temporal_influences && explanation.top_temporal_influences.length > 0) {
+                let html = '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Temporal Influences</h3>';
+                explanation.top_temporal_influences.slice(0, 3).forEach(inf => {
+                    const pct = (inf.weight * 100).toFixed(1);
+                    html += `
+                        <div class="influence-item">
+                            <div>
+                                <span>${inf.label}</span>
+                                <div class="influence-bar" style="width: ${pct}%;"></div>
+                            </div>
+                            <span style="color: #00ff88;">${pct}%</span>
+                        </div>
+                    `;
+                });
+                temporalEl.innerHTML = html;
+            }
+        }
+
+        // Update health impact display
+        function updateHealthImpact(health) {
+            const container = document.getElementById('healthContent');
+            
+            const warningColors = {
+                'Good': { bg: 'rgba(0, 230, 118, 0.2)', border: '#00e676', icon: '✅' },
+                'Moderate': { bg: 'rgba(255, 235, 59, 0.2)', border: '#ffeb3b', icon: '⚠️' },
+                'Unhealthy for Sensitive Groups': { bg: 'rgba(255, 152, 0, 0.2)', border: '#ff9800', icon: '🔶' },
+                'Unhealthy': { bg: 'rgba(244, 67, 54, 0.2)', border: '#f44336', icon: '🔴' },
+                'Very Unhealthy': { bg: 'rgba(156, 39, 176, 0.2)', border: '#9c27b0', icon: '🟣' },
+                'Hazardous': { bg: 'rgba(123, 31, 162, 0.3)', border: '#7b1fa2', icon: '☠️' }
+            };
+            
+            const style = warningColors[health.aqi_category] || warningColors['Moderate'];
+            
+            let html = `
+                <div class="health-warning-box" style="background: ${style.bg}; border-left: 4px solid ${style.border};">
+                    <h3>${style.icon} ${health.aqi_category}</h3>
+                    <p>${health.health_warning}</p>
+                    <div class="exposure-time">
+                        🕐 ${health.recommended_exposure}
+                    </div>
+                </div>
+                
+                <div class="health-grid">
+                    <div class="health-section">
+                        <h4>👥 Sensitive Groups at Risk</h4>
+                        <ul>
+                            ${health.sensitive_groups.map(g => `<li>${g}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="health-section">
+                        <h4>🫁 Immediate Health Effects</h4>
+                        <ul>
+                            ${health.health_effects.map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="health-section">
+                        <h4>🛡️ Recommended Precautions</h4>
+                        <ul>
+                            ${health.precautions.map(p => `<li>${p}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="health-section">
+                        <h4>⏳ Long-term Exposure Effects</h4>
+                        <ul>
+                            ${health.long_term_effects.map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Update sensor table
+        function updateTable(predictions) {
+            const tbody = document.getElementById('sensorTableBody');
+            let html = '';
+            
+            predictions.forEach(sensor => {
+                const aqi = getAqiCategory(sensor.predicted_pm25);
+                html += `
+                    <tr>
+                        <td>${sensor.location_id}</td>
+                        <td>${sensor.latitude.toFixed(4)}, ${sensor.longitude.toFixed(4)}</td>
+                        <td><strong>${sensor.predicted_pm25.toFixed(2)}</strong> µg/m³</td>
+                        <td>${sensor.data_coverage.toFixed(1)}%</td>
+                        <td><span class="aqi-badge ${aqi.class}">${aqi.label}</span></td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        // Main prediction function
+        async function getPrediction() {
+            const city = document.getElementById('citySelect').value;
+            const radius = document.getElementById('radiusSelect').value;
+            const btn = document.getElementById('predictBtn');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('errorMessage');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Loading...';
+            loading.classList.add('active');
+            error.classList.remove('active');
+
+            try {
+                const response = await fetch(`${API_BASE}/predict/${city}?radius_km=${radius}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Prediction failed');
+                }
+
+                const data = await response.json();
+                
+                // Update UI
+                addMarkers(data.forecast_pm25);
+                updateStats(data);
+                updateExplanation(data.explanation);
+                updateHealthImpact(data.health_impact);
+                updateTable(data.forecast_pm25);
+
+            } catch (err) {
+                console.error('Prediction error:', err);
+                document.getElementById('errorText').textContent = err.message;
+                error.classList.add('active');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔮 Get Forecast';
+                loading.classList.remove('active');
+            }
+        }
+
+        // City center coordinates for map
+        const cityCenters = {
+            mumbai: [19.076, 72.8777],
+            delhi: [28.6139, 77.209],
+            bangalore: [12.9716, 77.5946],
+            chennai: [13.0827, 80.2707]
+        };
+
+        // Update map center when city changes
+        document.getElementById('citySelect').addEventListener('change', function() {
+            const center = cityCenters[this.value];
+            if (center && map) {
+                map.setView(center, 11);
+            }
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>
