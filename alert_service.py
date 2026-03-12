@@ -114,12 +114,22 @@ def _get_health_category(pm25: float) -> str:
 
 async def _run_prediction_for_city(city_name: str) -> float | None:
     """Run the predict endpoint logic for a city and return the city average PM2.5.
-    Returns None on failure."""
+    Returns None on failure.
+
+    The prediction involves synchronous blocking I/O (sensor data fetching with
+    rate-limit sleeps), so we offload it to a thread to avoid blocking the
+    event loop and starving HTTP requests.
+    """
     try:
-        # Import lazily to avoid circular imports at module level
         from app import predict
-        # Pass explicit defaults — Query() objects don't resolve when called directly
-        response = await predict(city_name=city_name, radius_km=15, hours=336, user=None)
+
+        loop = asyncio.get_running_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: asyncio.run(
+                predict(city_name=city_name, radius_km=15, hours=336, user=None)
+            ),
+        )
         return response.city_average_pm25
     except Exception:
         logger.exception("Prediction failed for %s", city_name)

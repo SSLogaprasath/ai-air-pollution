@@ -5,6 +5,9 @@ FastAPI backend for real-time PM2.5 predictions using
 the STGraphTransformer model with interpretable outputs.
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import csv
 import io

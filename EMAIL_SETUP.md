@@ -13,21 +13,21 @@ All email settings are configured via **environment variables**. Create a `.env`
 
 ### Required Variables
 
-| Variable        | Description                          | Example                        |
-|-----------------|--------------------------------------|--------------------------------|
-| `SMTP_USER`     | SMTP login username / email address  | `yourname@gmail.com`           |
-| `SMTP_PASSWORD`  | SMTP login password or app password  | `abcd efgh ijkl mnop`         |
+| Variable        | Description                         | Example               |
+| --------------- | ----------------------------------- | --------------------- |
+| `SMTP_USER`     | SMTP login username / email address | `yourname@gmail.com`  |
+| `SMTP_PASSWORD` | SMTP login password or app password | `abcd efgh ijkl mnop` |
 
 ### Optional Variables
 
-| Variable              | Description                                      | Default            |
-|-----------------------|--------------------------------------------------|--------------------|
-| `SMTP_HOST`           | SMTP server hostname                             | `smtp.gmail.com`   |
-| `SMTP_PORT`           | SMTP server port                                 | `587`              |
-| `SMTP_FROM`           | "From" address on outgoing emails                | Same as `SMTP_USER`|
-| `SMTP_USE_TLS`        | Enable STARTTLS (`true` / `false`)               | `true`             |
-| `ALERT_CHECK_INTERVAL`| Seconds between alert checks                     | `10800` (3 hours)  |
-| `ALERT_COOLDOWN_HOURS`| Hours before re-alerting the same user+city pair | `6`                |
+| Variable               | Description                                      | Default             |
+| ---------------------- | ------------------------------------------------ | ------------------- |
+| `SMTP_HOST`            | SMTP server hostname                             | `smtp.gmail.com`    |
+| `SMTP_PORT`            | SMTP server port                                 | `587`               |
+| `SMTP_FROM`            | "From" address on outgoing emails                | Same as `SMTP_USER` |
+| `SMTP_USE_TLS`         | Enable STARTTLS (`true` / `false`)               | `true`              |
+| `ALERT_CHECK_INTERVAL` | Seconds between alert checks                     | `10800` (3 hours)   |
+| `ALERT_COOLDOWN_HOURS` | Hours before re-alerting the same user+city pair | `6`                 |
 
 ### Example `.env` file
 
@@ -115,10 +115,10 @@ SMTP_PASSWORD=your_password
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| "SMTP not configured" in logs | Set `SMTP_USER` and `SMTP_PASSWORD` environment variables |
-| Gmail authentication error | Use an App Password, not your regular password |
-| "Connection refused" | Check `SMTP_HOST` and `SMTP_PORT` values |
-| Emails not arriving | Check spam/junk folder; verify the "From" address |
-| Alerts not triggering | Ensure alerts are enabled in the dashboard and cooldown has elapsed |
+| Issue                         | Solution                                                            |
+| ----------------------------- | ------------------------------------------------------------------- |
+| "SMTP not configured" in logs | Set `SMTP_USER` and `SMTP_PASSWORD` environment variables           |
+| Gmail authentication error    | Use an App Password, not your regular password                      |
+| "Connection refused"          | Check `SMTP_HOST` and `SMTP_PORT` values                            |
+| Emails not arriving           | Check spam/junk folder; verify the "From" address                   |
+| Alerts not triggering         | Ensure alerts are enabled in the dashboard and cooldown has elapsed |
