@@ -6,16 +6,18 @@ the STGraphTransformer model with interpretable outputs.
 """
 
 import os
+import csv
+import io
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
 import torch
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from data_ingestion import (
@@ -24,8 +26,58 @@ from data_ingestion import (
     CITY_BBOXES,
     MASK_TOKEN
 )
+from indian_cities import search_cities, get_city_bbox, get_city_center
 from model import STGraphTransformer
 from train import PollutionForecaster
+from auth import (
+    register_user,
+    login_user,
+    get_current_user,
+    get_optional_user,
+)
+from database import (
+    save_location,
+    get_saved_locations,
+    delete_saved_location,
+    upsert_alert,
+    get_alerts,
+    delete_alert,
+    upsert_health_profile,
+    get_health_profile,
+    add_forecast_history,
+    get_forecast_history,
+)
+from alert_service import alert_scheduler
+
+
+# ============================================================
+# Auth Pydantic Models
+# ============================================================
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30)
+    email: str = Field(..., max_length=120)
+    password: str = Field(..., min_length=6)
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class SaveLocationRequest(BaseModel):
+    city_name: str
+    state: str = ""
+    lat: float
+    lon: float
+
+class AlertRequest(BaseModel):
+    city_name: str
+    threshold_pm25: float = Field(default=55.4, ge=1, le=500)
+    enabled: bool = True
+
+class HealthProfileRequest(BaseModel):
+    age_group: str = Field(default="adult")
+    conditions: List[str] = Field(default_factory=list)
+    outdoor_hours: float = Field(default=2.0, ge=0, le=24)
 
 
 # ============================================================
@@ -50,6 +102,7 @@ device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cp
 class SensorPrediction(BaseModel):
     """Prediction for a single sensor."""
     location_id: int = Field(..., description="OpenAQ location ID")
+    name: str = Field(..., description="Station name")
     latitude: float = Field(..., description="Sensor latitude")
     longitude: float = Field(..., description="Sensor longitude")
     predicted_pm25: float = Field(..., description="Predicted PM2.5 value (µg/m³)")
@@ -364,7 +417,8 @@ def generate_explanation(
     temporal_weights: Optional[torch.Tensor],
     location_ids: List[int],
     edge_index: torch.Tensor,
-    num_heads: int = NUM_HEADS
+    num_heads: int = NUM_HEADS,
+    location_names: Optional[List[str]] = None
 ) -> PredictionExplanation:
     """
     Generate human-readable explanation from attention weights.
@@ -406,9 +460,13 @@ def generate_explanation(
             if i < edge_idx_np.shape[1]:
                 src, tgt = edge_idx_np[0, i], edge_idx_np[1, i]
                 if src != tgt and src < len(location_ids) and tgt < len(location_ids):
+                    src_name = location_names[src] if location_names and src < len(location_names) else f"Station {location_ids[src]}"
+                    tgt_name = location_names[tgt] if location_names and tgt < len(location_names) else f"Station {location_ids[tgt]}"
                     edge_weights.append({
                         'source_id': int(location_ids[src]),
                         'target_id': int(location_ids[tgt]),
+                        'source_name': src_name,
+                        'target_name': tgt_name,
                         'weight': float(attn_np[i]) if i < len(attn_np) else 0.0
                     })
         
@@ -418,10 +476,10 @@ def generate_explanation(
         
         if top_spatial:
             top = top_spatial[0]
-            dominant_spatial = f"Station {top['source_id']} → Station {top['target_id']} (weight: {top['weight']:.3f})"
+            dominant_spatial = f"{top['source_name']} \u2192 {top['target_name']} (weight: {top['weight']:.3f})"
             explanation_parts.append(
-                f"Dominant spatial influence: Station {top['source_id']} "
-                f"strongly affects Station {top['target_id']}"
+                f"Dominant spatial influence: {top['source_name']} "
+                f"strongly affects {top['target_name']}"
             )
     
     # Process temporal attention
@@ -493,9 +551,14 @@ async def lifespan(app: FastAPI):
     print("API ready!")
     print("=" * 60)
     
+    # Start background alert checker
+    import asyncio
+    alert_task = asyncio.create_task(alert_scheduler())
+    
     yield
     
     # Cleanup on shutdown
+    alert_task.cancel()
     print("Shutting down API...")
 
 
@@ -561,7 +624,8 @@ async def health_check():
 async def predict(
     city_name: str,
     radius_km: int = Query(default=15, ge=1, le=100, description="Radius in km for connecting sensors"),
-    hours: int = Query(default=INPUT_WINDOW * 24, ge=1, le=720, description="Hours of historical data to use")
+    hours: int = Query(default=INPUT_WINDOW * 24, ge=1, le=720, description="Hours of historical data to use"),
+    user: dict | None = Depends(get_optional_user),
 ):
     """
     Get PM2.5 forecast for a city.
@@ -586,16 +650,21 @@ async def predict(
         raise HTTPException(status_code=503, detail="Model not loaded")
     
     city_lower = city_name.lower()
-    if city_lower not in CITY_BBOXES:
+
+    # Look up bounding box: first hardcoded, then dynamic cities DB
+    bbox = CITY_BBOXES.get(city_lower)
+    if bbox is None:
+        bbox = get_city_bbox(city_name)
+    if bbox is None:
         raise HTTPException(
             status_code=400,
-            detail=f"City '{city_name}' not supported. Available cities: {list(CITY_BBOXES.keys())}"
+            detail=f"City '{city_name}' not found. Use /api/cities/search?q=... to find available cities."
         )
     
     try:
         # Step 1: Fetch city graph
         print(f"Fetching graph for {city_name}...")
-        graph_data = fetch_city_graph(city=city_lower, radius_km=radius_km)
+        graph_data = fetch_city_graph(city=city_lower, radius_km=radius_km, bbox=bbox)
         
         if len(graph_data.location_ids) == 0:
             raise HTTPException(
@@ -606,6 +675,7 @@ async def predict(
         location_ids = graph_data.location_ids
         coords = graph_data.coords
         edge_index = graph_data.edge_index
+        location_names = graph_data.location_names
         
         print(f"Found {len(location_ids)} sensors with {edge_index.shape[1]} edges")
         
@@ -676,7 +746,8 @@ async def predict(
             temporal_weights=temporal_weights,
             location_ids=location_ids,
             edge_index=edge_index,
-            num_heads=NUM_HEADS
+            num_heads=NUM_HEADS,
+            location_names=location_names
         )
         
         # Step 7: Build response
@@ -690,8 +761,11 @@ async def predict(
             # Clamp predictions to reasonable range (PM2.5 should be positive)
             pred_clamped = float(max(0, min(pred, 999)))
             
+            sensor_name = location_names[i] if i < len(location_names) else f"Station {loc_id}"
+            
             sensor_predictions.append(SensorPrediction(
                 location_id=loc_id,
+                name=sensor_name,
                 latitude=coord[0],
                 longitude=coord[1],
                 predicted_pm25=round(pred_clamped, 2),
@@ -713,6 +787,16 @@ async def predict(
         health_impact = get_health_impact(city_avg)
         
         print(f"Prediction complete. City average PM2.5: {city_avg:.2f} µg/m³ ({health_impact.aqi_category})")
+        
+        # Save to forecast history if user is logged in
+        if user:
+            try:
+                add_forecast_history(
+                    user["id"], city_name.title(), round(city_avg, 2),
+                    health_impact.aqi_category, len(location_ids)
+                )
+            except Exception:
+                pass  # Don't fail prediction if history save fails
         
         return PredictionResponse(
             city=city_name.title(),
@@ -750,6 +834,171 @@ async def list_cities():
             }
         })
     return {"cities": cities}
+
+
+@app.get("/api/cities/search", tags=["Info"])
+async def city_search(
+    q: str = Query(..., min_length=1, max_length=100, description="City name to search for"),
+    limit: int = Query(default=10, ge=1, le=30, description="Max results")
+):
+    """
+    Search Indian cities by name. Returns matching cities with coordinates.
+    Use this for the city autocomplete in the UI.
+    """
+    results = search_cities(q, limit=limit)
+    return {
+        "query": q,
+        "count": len(results),
+        "cities": [
+            {
+                "name": c["name"],
+                "state": c["state"],
+                "lat": c["lat"],
+                "lon": c["lon"],
+                "code": c["name"].lower(),
+            }
+            for c in results
+        ]
+    }
+
+
+# ============================================================
+# Auth Endpoints
+# ============================================================
+
+@app.post("/api/auth/register", tags=["Auth"])
+async def api_register(req: RegisterRequest):
+    """Register a new user account."""
+    return register_user(req.username, req.email, req.password)
+
+
+@app.post("/api/auth/login", tags=["Auth"])
+async def api_login(req: LoginRequest):
+    """Login with email and password. Returns JWT token."""
+    return login_user(req.email, req.password)
+
+
+@app.get("/api/auth/me", tags=["Auth"])
+async def api_me(user: dict = Depends(get_current_user)):
+    """Get current user info."""
+    return {"user": user}
+
+
+# ============================================================
+# Saved Locations (Requires Login)
+# ============================================================
+
+@app.get("/api/user/locations", tags=["User Features"])
+async def api_get_locations(user: dict = Depends(get_current_user)):
+    """Get user's saved locations."""
+    return {"locations": get_saved_locations(user["id"])}
+
+
+@app.post("/api/user/locations", tags=["User Features"])
+async def api_save_location(req: SaveLocationRequest, user: dict = Depends(get_current_user)):
+    """Save a city to favorites."""
+    loc_id = save_location(user["id"], req.city_name, req.state, req.lat, req.lon)
+    return {"message": f"Saved {req.city_name}", "id": loc_id}
+
+
+@app.delete("/api/user/locations/{city_name}", tags=["User Features"])
+async def api_delete_location(city_name: str, user: dict = Depends(get_current_user)):
+    """Remove a saved city."""
+    deleted = delete_saved_location(user["id"], city_name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return {"message": f"Removed {city_name}"}
+
+
+# ============================================================
+# Alert Preferences (Requires Login)
+# ============================================================
+
+@app.get("/api/user/alerts", tags=["User Features"])
+async def api_get_alerts(user: dict = Depends(get_current_user)):
+    """Get user's alert preferences."""
+    return {"alerts": get_alerts(user["id"])}
+
+
+@app.post("/api/user/alerts", tags=["User Features"])
+async def api_upsert_alert(req: AlertRequest, user: dict = Depends(get_current_user)):
+    """Create or update an alert for a city."""
+    alert_id = upsert_alert(user["id"], req.city_name, req.threshold_pm25, req.enabled)
+    return {"message": f"Alert set for {req.city_name}", "id": alert_id}
+
+
+@app.delete("/api/user/alerts/{city_name}", tags=["User Features"])
+async def api_delete_alert(city_name: str, user: dict = Depends(get_current_user)):
+    """Remove an alert for a city."""
+    deleted = delete_alert(user["id"], city_name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"message": f"Alert removed for {city_name}"}
+
+
+# ============================================================
+# Health Profile (Requires Login)
+# ============================================================
+
+@app.get("/api/user/health-profile", tags=["User Features"])
+async def api_get_health_profile(user: dict = Depends(get_current_user)):
+    """Get user's health profile."""
+    profile = get_health_profile(user["id"])
+    return {"profile": profile}
+
+
+@app.post("/api/user/health-profile", tags=["User Features"])
+async def api_upsert_health_profile(req: HealthProfileRequest, user: dict = Depends(get_current_user)):
+    """Create or update health profile."""
+    valid_age_groups = ["child", "teen", "adult", "senior"]
+    if req.age_group not in valid_age_groups:
+        raise HTTPException(status_code=400, detail=f"age_group must be one of: {valid_age_groups}")
+    valid_conditions = [
+        "asthma", "copd", "heart_disease", "diabetes",
+        "pregnancy", "allergies", "lung_disease", "none"
+    ]
+    for c in req.conditions:
+        if c not in valid_conditions:
+            raise HTTPException(status_code=400, detail=f"Invalid condition: {c}. Valid: {valid_conditions}")
+    upsert_health_profile(user["id"], req.age_group, req.conditions, req.outdoor_hours)
+    return {"message": "Health profile updated"}
+
+
+# ============================================================
+# Forecast History (Requires Login)
+# ============================================================
+
+@app.get("/api/user/history", tags=["User Features"])
+async def api_get_history(
+    limit: int = Query(default=30, ge=1, le=200),
+    user: dict = Depends(get_current_user),
+):
+    """Get user's forecast history."""
+    return {"history": get_forecast_history(user["id"], limit=limit)}
+
+
+@app.get("/api/user/history/export", tags=["User Features"])
+async def api_export_history(
+    format: str = Query(default="csv", regex="^(csv|json)$"),
+    user: dict = Depends(get_current_user),
+):
+    """Export forecast history as CSV or JSON."""
+    history = get_forecast_history(user["id"], limit=500)
+    if format == "json":
+        return {"history": history}
+
+    # CSV export
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "City", "Avg PM2.5", "AQI Category", "Sensors"])
+    for h in history:
+        writer.writerow([h["created_at"], h["city_name"], h["avg_pm25"], h["aqi_category"], h["num_sensors"]])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=forecast_history.csv"},
+    )
 
 
 # ============================================================

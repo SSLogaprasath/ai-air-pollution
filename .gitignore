@@ -34,3 +34,9 @@ Thumbs.db
 # Environment
 .env
 *.log
+
+# Secrets
+.jwt_secret
+
+# Database
+*.db

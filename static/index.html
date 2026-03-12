@@ -1,562 +1,1707 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Air Quality Forecaster</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            min-height: 100vh;
-            color: #fff;
-        }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        min-height: 100vh;
+        color: #fff;
+      }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+      }
 
-        header {
-            text-align: center;
-            padding: 30px 0;
-        }
+      header {
+        text-align: center;
+        padding: 30px 0;
+      }
 
-        header h1 {
-            font-size: 2.5rem;
-            background: linear-gradient(90deg, #00d9ff, #00ff88);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-        }
+      header h1 {
+        font-size: 2.5rem;
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+      }
 
-        header p {
-            color: #8892b0;
-            font-size: 1.1rem;
-        }
+      header p {
+        color: #8892b0;
+        font-size: 1.1rem;
+      }
 
-        .controls {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 30px;
-        }
+      .controls {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+      }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
 
-        .control-group label {
-            color: #8892b0;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+      .control-group label {
+        color: #8892b0;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
 
-        select, button {
-            padding: 12px 24px;
-            font-size: 1rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+      select,
+      button {
+        padding: 12px 24px;
+        font-size: 1rem;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
 
-        select {
-            background: #1f2937;
-            color: #fff;
-            border: 1px solid #374151;
-            min-width: 200px;
-        }
+      select {
+        background: #1f2937;
+        color: #fff;
+        border: 1px solid #374151;
+        min-width: 200px;
+      }
 
-        select:focus {
-            outline: none;
-            border-color: #00d9ff;
-        }
+      select:focus {
+        outline: none;
+        border-color: #00d9ff;
+      }
 
-        .btn-predict {
-            background: linear-gradient(90deg, #00d9ff, #00ff88);
-            color: #1a1a2e;
-            font-weight: 600;
-            padding: 12px 40px;
-        }
+      /* City search autocomplete */
+      .city-search-wrapper {
+        position: relative;
+        min-width: 280px;
+      }
 
-        .btn-predict:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 217, 255, 0.3);
-        }
+      .city-search-input {
+        width: 100%;
+        padding: 12px 24px;
+        padding-right: 40px;
+        font-size: 1rem;
+        border: 1px solid #374151;
+        border-radius: 8px;
+        background: #1f2937;
+        color: #fff;
+        outline: none;
+        transition: border-color 0.3s ease;
+      }
 
-        .btn-predict:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+      .city-search-input:focus {
+        border-color: #00d9ff;
+      }
 
+      .city-search-input::placeholder {
+        color: #6b7280;
+      }
+
+      .city-search-clear {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6b7280;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 2px 6px;
+        line-height: 1;
+        display: none;
+      }
+
+      .city-search-clear:hover {
+        color: #fff;
+      }
+
+      .city-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 100;
+        display: none;
+      }
+
+      .city-dropdown.active {
+        display: block;
+      }
+
+      .city-option {
+        padding: 10px 16px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.15s ease;
+      }
+
+      .city-option:hover,
+      .city-option.highlighted {
+        background: rgba(0, 217, 255, 0.15);
+      }
+
+      .city-option-name {
+        font-weight: 500;
+        color: #fff;
+      }
+
+      .city-option-state {
+        font-size: 0.8rem;
+        color: #8892b0;
+      }
+
+      .city-dropdown-empty {
+        padding: 12px 16px;
+        color: #6b7280;
+        text-align: center;
+        font-size: 0.9rem;
+      }
+
+      .btn-predict {
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        color: #1a1a2e;
+        font-weight: 600;
+        padding: 12px 40px;
+      }
+
+      .btn-predict:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 217, 255, 0.3);
+      }
+
+      .btn-predict:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-locate {
+        background: linear-gradient(90deg, #6366f1, #a855f7);
+        color: #fff;
+        font-weight: 600;
+        padding: 12px 28px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-locate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+      }
+
+      .btn-locate:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .main-content {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 20px;
+      }
+
+      @media (max-width: 1000px) {
         .main-content {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 20px;
+          grid-template-columns: 1fr;
         }
+      }
 
-        @media (max-width: 1000px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
+      .card {
+        background: rgba(31, 41, 55, 0.8);
+        border-radius: 16px;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .card h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: #00d9ff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #map {
+        height: 500px;
+        border-radius: 12px;
+        z-index: 1;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .stat-label {
+        color: #8892b0;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 5px;
+      }
+
+      .explanation-box {
+        background: rgba(0, 217, 255, 0.1);
+        border-left: 4px solid #00d9ff;
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+        margin-top: 15px;
+      }
+
+      .explanation-box p {
+        color: #ccd6f6;
+        line-height: 1.6;
+      }
+
+      .influence-list {
+        margin-top: 15px;
+      }
+
+      .influence-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        margin-bottom: 8px;
+      }
+
+      .influence-bar {
+        height: 4px;
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        border-radius: 2px;
+        margin-top: 5px;
+      }
+
+      .sensor-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+
+      .sensor-table th,
+      .sensor-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .sensor-table th {
+        color: #8892b0;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+      }
+
+      .aqi-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .aqi-good {
+        background: #00e676;
+        color: #000;
+      }
+      .aqi-moderate {
+        background: #ffeb3b;
+        color: #000;
+      }
+      .aqi-unhealthy-sensitive {
+        background: #ff9800;
+        color: #000;
+      }
+      .aqi-unhealthy {
+        background: #f44336;
+        color: #fff;
+      }
+      .aqi-very-unhealthy {
+        background: #9c27b0;
+        color: #fff;
+      }
+      .aqi-hazardous {
+        background: #7b1fa2;
+        color: #fff;
+      }
+
+      .health-warning-box {
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+      }
+
+      .health-warning-box h3 {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .health-warning-box p {
+        font-size: 1rem;
+        line-height: 1.6;
+        margin-bottom: 15px;
+      }
+
+      .health-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .health-section {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 15px;
+      }
+
+      .health-section h4 {
+        color: #00d9ff;
+        font-size: 0.95rem;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .health-section ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .health-section li {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 0.9rem;
+        color: #ccd6f6;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .health-section li:last-child {
+        border-bottom: none;
+      }
+
+      .health-section li::before {
+        content: "•";
+        color: #00d9ff;
+        font-weight: bold;
+      }
+
+      .exposure-time {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #fff;
+        background: rgba(0, 217, 255, 0.2);
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 15px;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 40px;
+      }
+
+      .loading.active {
+        display: block;
+      }
+
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(0, 217, 255, 0.2);
+        border-top-color: #00d9ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        .card {
-            background: rgba(31, 41, 55, 0.8);
-            border-radius: 16px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+      .error-message {
+        background: rgba(244, 67, 54, 0.2);
+        border-left: 4px solid #f44336;
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+        margin-top: 15px;
+        display: none;
+      }
 
-        .card h2 {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            color: #00d9ff;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+      .error-message.active {
+        display: block;
+      }
 
-        #map {
-            height: 500px;
-            border-radius: 12px;
-            z-index: 1;
-        }
+      .hidden {
+        display: none !important;
+      }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+      footer {
+        text-align: center;
+        padding: 30px;
+        color: #8892b0;
+        font-size: 0.9rem;
+      }
 
-        .stat-card {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-        }
+      footer a {
+        color: #00d9ff;
+        text-decoration: none;
+      }
 
-        .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            background: linear-gradient(90deg, #00d9ff, #00ff88);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+      /* ========== Auth & User Feature Styles ========== */
 
-        .stat-label {
-            color: #8892b0;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 5px;
-        }
+      /* Header layout for user button */
+      header {
+        position: relative;
+      }
+      .header-actions {
+        position: absolute;
+        top: 30px;
+        right: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .btn-auth {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+      }
+      .btn-login {
+        background: transparent;
+        border: 1px solid #00d9ff;
+        color: #00d9ff;
+      }
+      .btn-login:hover {
+        background: rgba(0, 217, 255, 0.1);
+      }
+      .btn-signup {
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        color: #1a1a2e;
+      }
+      .btn-signup:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+      }
 
-        .explanation-box {
-            background: rgba(0, 217, 255, 0.1);
-            border-left: 4px solid #00d9ff;
-            padding: 15px;
-            border-radius: 0 8px 8px 0;
-            margin-top: 15px;
-        }
+      /* User Menu (when logged in) */
+      .user-menu {
+        position: relative;
+      }
+      .user-menu-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        background: rgba(0, 217, 255, 0.1);
+        border: 1px solid rgba(0, 217, 255, 0.3);
+        color: #00d9ff;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+      }
+      .user-menu-btn:hover {
+        background: rgba(0, 217, 255, 0.2);
+      }
+      .user-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #00d9ff, #00ff88);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1a1a2e;
+        font-weight: bold;
+        font-size: 0.8rem;
+      }
+      .user-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        min-width: 220px;
+        padding: 8px 0;
+        z-index: 200;
+        display: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      .user-dropdown.active {
+        display: block;
+      }
+      .user-dropdown-item {
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        color: #ccd6f6;
+        font-size: 0.9rem;
+        transition: background 0.15s;
+      }
+      .user-dropdown-item:hover {
+        background: rgba(0, 217, 255, 0.1);
+      }
+      .user-dropdown-divider {
+        height: 1px;
+        background: #374151;
+        margin: 4px 0;
+      }
+      .user-dropdown-item.danger {
+        color: #f44336;
+      }
 
-        .explanation-box p {
-            color: #ccd6f6;
-            line-height: 1.6;
-        }
+      /* Modal Overlay */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 0.3s,
+          visibility 0.3s;
+      }
+      .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+      }
+      .modal {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 440px;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 0;
+        transform: translateY(20px);
+        transition: transform 0.3s;
+      }
+      .modal-overlay.active .modal {
+        transform: translateY(0);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px 0;
+      }
+      .modal-header h2 {
+        font-size: 1.3rem;
+        color: #fff;
+        margin: 0;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        color: #8892b0;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        line-height: 1;
+      }
+      .modal-close:hover {
+        color: #fff;
+      }
 
-        .influence-list {
-            margin-top: 15px;
-        }
+      /* Auth Tabs */
+      .auth-tabs {
+        display: flex;
+        gap: 0;
+        margin: 16px 24px 0;
+        border-bottom: 2px solid #374151;
+      }
+      .auth-tab {
+        flex: 1;
+        padding: 10px;
+        text-align: center;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #8892b0;
+        font-size: 0.95rem;
+        cursor: pointer;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+      }
+      .auth-tab.active {
+        color: #00d9ff;
+        border-bottom-color: #00d9ff;
+      }
 
-        .influence-item {
+      /* Forms */
+      .auth-form {
+        padding: 20px 24px 24px;
+      }
+      .form-group {
+        margin-bottom: 16px;
+      }
+      .form-group label {
+        display: block;
+        color: #8892b0;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 10px 14px;
+        background: #111827;
+        border: 1px solid #374151;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+      .form-group input:focus {
+        border-color: #00d9ff;
+      }
+      .form-error {
+        color: #f44336;
+        font-size: 0.82rem;
+        margin-top: 4px;
+        display: none;
+      }
+      .form-error.active {
+        display: block;
+      }
+      .btn-submit {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        color: #1a1a2e;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 217, 255, 0.3);
+      }
+      .btn-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .auth-message {
+        text-align: center;
+        margin-top: 12px;
+        font-size: 0.85rem;
+        color: #8892b0;
+      }
+      .auth-message a {
+        color: #00d9ff;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      /* Feature Panel (right sidebar drawer) */
+      .feature-panel-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 500;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 0.3s,
+          visibility 0.3s;
+      }
+      .feature-panel-overlay.active {
+        opacity: 1;
+        visibility: visible;
+      }
+      .feature-panel {
+        position: fixed;
+        top: 0;
+        right: -440px;
+        width: 420px;
+        max-width: 95vw;
+        height: 100vh;
+        background: #1f2937;
+        border-left: 1px solid #374151;
+        z-index: 501;
+        overflow-y: auto;
+        transition: right 0.35s ease;
+        padding: 24px;
+      }
+      .feature-panel.active {
+        right: 0;
+      }
+      .feature-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .feature-panel-header h2 {
+        font-size: 1.2rem;
+        color: #00d9ff;
+        margin: 0;
+      }
+      .feature-panel-close {
+        background: none;
+        border: none;
+        color: #8892b0;
+        font-size: 1.4rem;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .feature-panel-close:hover {
+        color: #fff;
+      }
+
+      /* Feature Panel Tabs */
+      .fp-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .fp-tab {
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid #374151;
+        color: #8892b0;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .fp-tab.active {
+        background: rgba(0, 217, 255, 0.15);
+        border-color: #00d9ff;
+        color: #00d9ff;
+      }
+      .fp-content {
+        display: none;
+      }
+      .fp-content.active {
+        display: block;
+      }
+
+      /* Saved Locations List */
+      .saved-loc-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        transition: background 0.15s;
+      }
+      .saved-loc-item:hover {
+        background: rgba(0, 217, 255, 0.08);
+      }
+      .saved-loc-info {
+        flex: 1;
+      }
+      .saved-loc-name {
+        font-weight: 600;
+        color: #fff;
+        font-size: 0.95rem;
+      }
+      .saved-loc-state {
+        color: #8892b0;
+        font-size: 0.8rem;
+      }
+      .saved-loc-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 4px;
+        border-radius: 6px;
+        transition: background 0.15s;
+      }
+      .btn-icon:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .btn-icon.danger:hover {
+        background: rgba(244, 67, 54, 0.2);
+      }
+      .btn-save-loc {
+        margin-top: 12px;
+        padding: 10px 20px;
+        background: linear-gradient(90deg, #00d9ff, #00ff88);
+        color: #1a1a2e;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+        width: 100%;
+      }
+      .btn-save-loc:hover {
+        transform: translateY(-1px);
+      }
+
+      /* Alert Items */
+      .alert-item {
+        padding: 14px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+      .alert-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .alert-city {
+        font-weight: 600;
+        color: #fff;
+      }
+      .alert-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .alert-threshold-label {
+        color: #8892b0;
+        font-size: 0.82rem;
+      }
+      .alert-threshold-input {
+        width: 70px;
+        padding: 4px 8px;
+        background: #111827;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 0.85rem;
+        text-align: center;
+      }
+      .toggle-switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        background: #374151;
+        border-radius: 11px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      .toggle-switch.active {
+        background: #00d9ff;
+      }
+      .toggle-switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-radius: 50%;
+        transition: left 0.3s;
+      }
+      .toggle-switch.active::after {
+        left: 21px;
+      }
+
+      /* Health Profile Form */
+      .hp-form-group {
+        margin-bottom: 16px;
+      }
+      .hp-form-group label {
+        display: block;
+        color: #8892b0;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .hp-select {
+        width: 100%;
+        padding: 10px 14px;
+        background: #111827;
+        border: 1px solid #374151;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 0.95rem;
+      }
+      .hp-checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .hp-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 20px;
+        border: 1px solid #374151;
+        cursor: pointer;
+        font-size: 0.82rem;
+        color: #ccd6f6;
+        transition: all 0.2s;
+      }
+      .hp-checkbox.selected {
+        background: rgba(0, 217, 255, 0.15);
+        border-color: #00d9ff;
+        color: #00d9ff;
+      }
+      .hp-checkbox input {
+        display: none;
+      }
+      .hp-range-value {
+        color: #00d9ff;
+        font-weight: 600;
+        margin-left: 8px;
+      }
+      input[type="range"] {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 6px;
+        background: #374151;
+        border-radius: 3px;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        background: linear-gradient(135deg, #00d9ff, #00ff88);
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      /* History Table */
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      .history-table th {
+        text-align: left;
+        padding: 8px 6px;
+        color: #8892b0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        border-bottom: 1px solid #374151;
+      }
+      .history-table td {
+        padding: 10px 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: #ccd6f6;
+      }
+      .btn-export {
+        padding: 10px 20px;
+        border: 1px solid #00d9ff;
+        background: transparent;
+        color: #00d9ff;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn-export:hover {
+        background: rgba(0, 217, 255, 0.1);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 30px 20px;
+        color: #6b7280;
+      }
+      .empty-state-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+      .empty-state p {
+        font-size: 0.9rem;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 10px;
+        padding: 12px 24px;
+        color: #fff;
+        font-size: 0.9rem;
+        z-index: 2000;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        transition: all 0.4s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .toast.active {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+      .toast.success {
+        border-left: 4px solid #00ff88;
+      }
+      .toast.error {
+        border-left: 4px solid #f44336;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🌍 Air Quality Forecaster</h1>
+        <p>
+          Real-time PM2.5 predictions using Spatiotemporal Graph Transformer
+        </p>
+        <!-- Auth buttons (logged out) -->
+        <div class="header-actions" id="headerGuest">
+          <button class="btn-auth btn-login" onclick="openAuthModal('login')">
+            Log In
+          </button>
+          <button
+            class="btn-auth btn-signup"
+            onclick="openAuthModal('register')"
+          >
+            Sign Up
+          </button>
+        </div>
+        <!-- User menu (logged in) -->
+        <div class="header-actions hidden" id="headerUser">
+          <div class="user-menu" id="userMenu">
+            <button class="user-menu-btn" onclick="toggleUserDropdown()">
+              <span class="user-avatar" id="userAvatar">U</span>
+              <span id="userDisplayName">User</span>
+              <span style="font-size: 0.7rem">▼</span>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+              <div
+                class="user-dropdown-item"
+                onclick="openFeaturePanel('locations')"
+              >
+                ⭐ Saved Locations
+              </div>
+              <div
+                class="user-dropdown-item"
+                onclick="openFeaturePanel('alerts')"
+              >
+                🔔 Alert Settings
+              </div>
+              <div
+                class="user-dropdown-item"
+                onclick="openFeaturePanel('health')"
+              >
+                🫁 Health Profile
+              </div>
+              <div
+                class="user-dropdown-item"
+                onclick="openFeaturePanel('history')"
+              >
+                📜 Forecast History
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <div class="user-dropdown-item danger" onclick="logout()">
+                🚪 Log Out
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="controls">
+        <div class="control-group">
+          <label>Search City</label>
+          <div class="city-search-wrapper" id="citySearchWrapper">
+            <input
+              type="text"
+              class="city-search-input"
+              id="citySearchInput"
+              placeholder="Type a city name..."
+              autocomplete="off"
+              value="Mumbai"
+            />
+            <button
+              class="city-search-clear"
+              id="citySearchClear"
+              onclick="clearCitySearch()"
+            >
+              &times;
+            </button>
+            <div class="city-dropdown" id="cityDropdown"></div>
+            <!-- Hidden fields to hold the selected city data -->
+            <input type="hidden" id="selectedCityCode" value="mumbai" />
+            <input type="hidden" id="selectedCityLat" value="19.076" />
+            <input type="hidden" id="selectedCityLon" value="72.8777" />
+          </div>
+        </div>
+        <div class="control-group">
+          <label>Sensor Radius</label>
+          <select id="radiusSelect">
+            <option value="10">10 km</option>
+            <option value="15" selected>15 km</option>
+            <option value="25">25 km</option>
+            <option value="50">50 km</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>&nbsp;</label>
+          <button class="btn-predict" id="predictBtn" onclick="getPrediction()">
+            🔮 Get Forecast
+          </button>
+        </div>
+        <div class="control-group">
+          <label>&nbsp;</label>
+          <button class="btn-locate" id="locateBtn" onclick="trackMyLocation()">
+            📍 Track My Location
+          </button>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Fetching sensor data and running model inference...</p>
+      </div>
+
+      <div class="error-message" id="errorMessage">
+        <strong>Error:</strong> <span id="errorText"></span>
+      </div>
+
+      <div class="main-content" id="mainContent">
+        <div class="card">
+          <h2>📍 Sensor Map</h2>
+          <div id="map"></div>
+        </div>
+
+        <div class="sidebar">
+          <div class="card">
+            <h2>📊 City Overview</h2>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value" id="avgPm25">--</div>
+                <div class="stat-label">Avg PM2.5</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="numSensors">--</div>
+                <div class="stat-label">Sensors</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="numEdges">--</div>
+                <div class="stat-label">Connections</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="aqiLevel">--</div>
+                <div class="stat-label">AQI Level</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top: 20px">
+            <h2>🧠 Model Explanation</h2>
+            <div class="explanation-box">
+              <p id="explanationText">
+                Run a prediction to see what influenced the forecast.
+              </p>
+            </div>
+
+            <div class="influence-list" id="spatialInfluences">
+              <h3
+                style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px"
+              >
+                Top Spatial Influences
+              </h3>
+              <!-- Filled dynamically -->
+            </div>
+
+            <div class="influence-list" id="temporalInfluences">
+              <h3
+                style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px"
+              >
+                Top Temporal Influences
+              </h3>
+              <!-- Filled dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Impact Section -->
+      <div class="card" style="margin-top: 20px" id="healthCard">
+        <h2>⚠️ Health Impact Assessment</h2>
+        <div id="healthContent">
+          <p style="color: #8892b0; text-align: center">
+            Run a prediction to see health impact information
+          </p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px" id="sensorTableCard">
+        <h2>📋 Sensor Predictions</h2>
+        <table class="sensor-table">
+          <thead>
+            <tr>
+              <th>Station Name</th>
+              <th>Location</th>
+              <th>Predicted PM2.5</th>
+              <th>Data Coverage</th>
+              <th>AQI Category</th>
+            </tr>
+          </thead>
+          <tbody id="sensorTableBody">
+            <tr>
+              <td colspan="5" style="text-align: center; color: #8892b0">
+                Select a city and click "Get Forecast" to see predictions
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer>
+        <p>
+          Powered by <a href="#">STGraphTransformer</a> | Data from
+          <a href="https://openaq.org" target="_blank">OpenAQ</a>
+        </p>
+      </footer>
+    </div>
+
+    <!-- ========== Auth Modal ========== -->
+    <div class="modal-overlay" id="authModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="authModalTitle">Welcome</h2>
+          <button class="modal-close" onclick="closeAuthModal()">
+            &times;
+          </button>
+        </div>
+        <div class="auth-tabs">
+          <button
+            class="auth-tab active"
+            id="tabLogin"
+            onclick="switchAuthTab('login')"
+          >
+            Log In
+          </button>
+          <button
+            class="auth-tab"
+            id="tabRegister"
+            onclick="switchAuthTab('register')"
+          >
+            Sign Up
+          </button>
+        </div>
+        <!-- Login Form -->
+        <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input
+              type="email"
+              id="loginEmail"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input
+              type="password"
+              id="loginPassword"
+              placeholder="Your password"
+              required
+              minlength="6"
+            />
+          </div>
+          <div class="form-error" id="loginError"></div>
+          <button type="submit" class="btn-submit" id="loginSubmit">
+            Log In
+          </button>
+          <div class="auth-message">
+            Don't have an account?
+            <a onclick="switchAuthTab('register')">Sign up</a>
+          </div>
+        </form>
+        <!-- Register Form -->
+        <form
+          class="auth-form"
+          id="registerForm"
+          style="display: none"
+          onsubmit="handleRegister(event)"
+        >
+          <div class="form-group">
+            <label for="regUsername">Username</label>
+            <input
+              type="text"
+              id="regUsername"
+              placeholder="Pick a username"
+              required
+              minlength="3"
+              maxlength="30"
+              pattern="[a-zA-Z0-9_]+"
+            />
+          </div>
+          <div class="form-group">
+            <label for="regEmail">Email</label>
+            <input
+              type="email"
+              id="regEmail"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Password</label>
+            <input
+              type="password"
+              id="regPassword"
+              placeholder="Min 6 characters"
+              required
+              minlength="6"
+            />
+          </div>
+          <div class="form-error" id="registerError"></div>
+          <button type="submit" class="btn-submit" id="registerSubmit">
+            Create Account
+          </button>
+          <div class="auth-message">
+            Already have an account?
+            <a onclick="switchAuthTab('login')">Log in</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========== Feature Panel (slide-in drawer) ========== -->
+    <div
+      class="feature-panel-overlay"
+      id="fpOverlay"
+      onclick="closeFeaturePanel()"
+    ></div>
+    <div class="feature-panel" id="featurePanel">
+      <div class="feature-panel-header">
+        <h2 id="fpTitle">⭐ My Dashboard</h2>
+        <button class="feature-panel-close" onclick="closeFeaturePanel()">
+          &times;
+        </button>
+      </div>
+      <div class="fp-tabs">
+        <button
+          class="fp-tab active"
+          data-tab="locations"
+          onclick="switchFpTab('locations')"
+        >
+          ⭐ Locations
+        </button>
+        <button
+          class="fp-tab"
+          data-tab="alerts"
+          onclick="switchFpTab('alerts')"
+        >
+          🔔 Alerts
+        </button>
+        <button
+          class="fp-tab"
+          data-tab="health"
+          onclick="switchFpTab('health')"
+        >
+          🫁 Health
+        </button>
+        <button
+          class="fp-tab"
+          data-tab="history"
+          onclick="switchFpTab('history')"
+        >
+          📜 History
+        </button>
+      </div>
+
+      <!-- Saved Locations Tab -->
+      <div class="fp-content active" id="fpLocations">
+        <button class="btn-save-loc" onclick="saveCurrentCity()">
+          ⭐ Save Current City
+        </button>
+        <div id="savedLocationsList" style="margin-top: 16px">
+          <div class="empty-state">
+            <div class="empty-state-icon">📌</div>
+            <p>No saved locations yet. Search a city and save it!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts Tab -->
+      <div class="fp-content" id="fpAlerts">
+        <p style="color: #8892b0; font-size: 0.85rem; margin-bottom: 14px">
+          Get notified when PM2.5 exceeds your threshold for saved cities.
+        </p>
+        <button class="btn-save-loc" onclick="addAlertForCurrentCity()">
+          🔔 Add Alert for Current City
+        </button>
+        <div id="alertsList" style="margin-top: 16px">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔕</div>
+            <p>No alerts configured.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Profile Tab -->
+      <div class="fp-content" id="fpHealth">
+        <p style="color: #8892b0; font-size: 0.85rem; margin-bottom: 14px">
+          Customize health recommendations based on your profile.
+        </p>
+        <form id="healthProfileForm" onsubmit="saveHealthProfile(event)">
+          <div class="hp-form-group">
+            <label>Age Group</label>
+            <select class="hp-select" id="hpAgeGroup">
+              <option value="child">Child (0-12)</option>
+              <option value="teen">Teen (13-17)</option>
+              <option value="adult" selected>Adult (18-64)</option>
+              <option value="senior">Senior (65+)</option>
+            </select>
+          </div>
+          <div class="hp-form-group">
+            <label>Health Conditions</label>
+            <div class="hp-checkbox-group" id="hpConditions">
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="asthma" />Asthma</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="copd" />COPD</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="heart_disease" />Heart
+                Disease</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="diabetes" />Diabetes</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="pregnancy" />Pregnancy</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="allergies" />Allergies</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="lung_disease" />Lung
+                Disease</label
+              >
+              <label class="hp-checkbox"
+                ><input type="checkbox" value="none" />None</label
+              >
+            </div>
+          </div>
+          <div class="hp-form-group">
+            <label
+              >Daily Outdoor Hours
+              <span class="hp-range-value" id="hpOutdoorVal">2.0</span></label
+            >
+            <input
+              type="range"
+              id="hpOutdoorHours"
+              min="0"
+              max="24"
+              step="0.5"
+              value="2"
+              oninput="
+                document.getElementById('hpOutdoorVal').textContent = this.value
+              "
+            />
+          </div>
+          <button type="submit" class="btn-submit">Save Health Profile</button>
+        </form>
+      </div>
+
+      <!-- History Tab -->
+      <div class="fp-content" id="fpHistory">
+        <div
+          style="
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            margin-bottom: 8px;
-        }
-
-        .influence-bar {
-            height: 4px;
-            background: linear-gradient(90deg, #00d9ff, #00ff88);
-            border-radius: 2px;
-            margin-top: 5px;
-        }
-
-        .sensor-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        .sensor-table th, .sensor-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .sensor-table th {
-            color: #8892b0;
-            font-weight: 500;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-        }
-
-        .aqi-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .aqi-good { background: #00e676; color: #000; }
-        .aqi-moderate { background: #ffeb3b; color: #000; }
-        .aqi-unhealthy-sensitive { background: #ff9800; color: #000; }
-        .aqi-unhealthy { background: #f44336; color: #fff; }
-        .aqi-very-unhealthy { background: #9c27b0; color: #fff; }
-        .aqi-hazardous { background: #7b1fa2; color: #fff; }
-
-        .health-warning-box {
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-
-        .health-warning-box h3 {
-            font-size: 1.3rem;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .health-warning-box p {
-            font-size: 1rem;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-
-        .health-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .health-section {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-        }
-
-        .health-section h4 {
-            color: #00d9ff;
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .health-section ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .health-section li {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.9rem;
-            color: #ccd6f6;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-        }
-
-        .health-section li:last-child {
-            border-bottom: none;
-        }
-
-        .health-section li::before {
-            content: "•";
-            color: #00d9ff;
-            font-weight: bold;
-        }
-
-        .exposure-time {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #fff;
-            background: rgba(0, 217, 255, 0.2);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(0, 217, 255, 0.2);
-            border-top-color: #00d9ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: rgba(244, 67, 54, 0.2);
-            border-left: 4px solid #f44336;
-            padding: 15px;
-            border-radius: 0 8px 8px 0;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .error-message.active {
-            display: block;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        footer {
-            text-align: center;
-            padding: 30px;
-            color: #8892b0;
-            font-size: 0.9rem;
-        }
-
-        footer a {
-            color: #00d9ff;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🌍 Air Quality Forecaster</h1>
-            <p>Real-time PM2.5 predictions using Spatiotemporal Graph Transformer</p>
-        </header>
-
-        <div class="controls">
-            <div class="control-group">
-                <label>Select City</label>
-                <select id="citySelect">
-                    <option value="mumbai">Mumbai</option>
-                    <option value="delhi">Delhi</option>
-                    <option value="bangalore">Bangalore</option>
-                    <option value="chennai">Chennai</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Sensor Radius</label>
-                <select id="radiusSelect">
-                    <option value="10">10 km</option>
-                    <option value="15" selected>15 km</option>
-                    <option value="25">25 km</option>
-                    <option value="50">50 km</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>&nbsp;</label>
-                <button class="btn-predict" id="predictBtn" onclick="getPrediction()">
-                    🔮 Get Forecast
-                </button>
-            </div>
+            margin-bottom: 14px;
+          "
+        >
+          <span style="color: #8892b0; font-size: 0.85rem"
+            >Your recent forecasts</span
+          >
+          <div style="display: flex; gap: 8px">
+            <button class="btn-export" onclick="exportHistory('csv')">
+              📥 CSV
+            </button>
+            <button class="btn-export" onclick="exportHistory('json')">
+              📥 JSON
+            </button>
+          </div>
         </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Fetching sensor data and running model inference...</p>
+        <div id="historyContent">
+          <div class="empty-state">
+            <div class="empty-state-icon">📜</div>
+            <p>No forecast history yet. Run a prediction to start recording!</p>
+          </div>
         </div>
-
-        <div class="error-message" id="errorMessage">
-            <strong>Error:</strong> <span id="errorText"></span>
-        </div>
-
-        <div class="main-content" id="mainContent">
-            <div class="card">
-                <h2>📍 Sensor Map</h2>
-                <div id="map"></div>
-            </div>
-
-            <div class="sidebar">
-                <div class="card">
-                    <h2>📊 City Overview</h2>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="avgPm25">--</div>
-                            <div class="stat-label">Avg PM2.5</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="numSensors">--</div>
-                            <div class="stat-label">Sensors</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="numEdges">--</div>
-                            <div class="stat-label">Connections</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="aqiLevel">--</div>
-                            <div class="stat-label">AQI Level</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card" style="margin-top: 20px;">
-                    <h2>🧠 Model Explanation</h2>
-                    <div class="explanation-box">
-                        <p id="explanationText">Run a prediction to see what influenced the forecast.</p>
-                    </div>
-                    
-                    <div class="influence-list" id="spatialInfluences">
-                        <h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Spatial Influences</h3>
-                        <!-- Filled dynamically -->
-                    </div>
-
-                    <div class="influence-list" id="temporalInfluences">
-                        <h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Temporal Influences</h3>
-                        <!-- Filled dynamically -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Health Impact Section -->
-        <div class="card" style="margin-top: 20px;" id="healthCard">
-            <h2>⚠️ Health Impact Assessment</h2>
-            <div id="healthContent">
-                <p style="color: #8892b0; text-align: center;">Run a prediction to see health impact information</p>
-            </div>
-        </div>
-
-        <div class="card" style="margin-top: 20px;" id="sensorTableCard">
-            <h2>📋 Sensor Predictions</h2>
-            <table class="sensor-table">
-                <thead>
-                    <tr>
-                        <th>Station ID</th>
-                        <th>Location</th>
-                        <th>Predicted PM2.5</th>
-                        <th>Data Coverage</th>
-                        <th>AQI Category</th>
-                    </tr>
-                </thead>
-                <tbody id="sensorTableBody">
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #8892b0;">
-                            Select a city and click "Get Forecast" to see predictions
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <footer>
-            <p>Powered by <a href="#">STGraphTransformer</a> | Data from <a href="https://openaq.org" target="_blank">OpenAQ</a></p>
-        </footer>
+      </div>
     </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const API_BASE = 'http://localhost:8000';
-        let map = null;
-        let markers = [];
+      const API_BASE = window.location.origin;
+      let map = null;
+      let markers = [];
 
-        // Initialize map
-        function initMap() {
-            map = L.map('map').setView([19.076, 72.8777], 11);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                maxZoom: 19
-            }).addTo(map);
-        }
+      // Initialize map
+      function initMap() {
+        map = L.map("map").setView([19.076, 72.8777], 11);
+        L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          {
+            attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+            maxZoom: 19,
+          },
+        ).addTo(map);
+      }
 
-        // Get AQI category from PM2.5 value
-        function getAqiCategory(pm25) {
-            if (pm25 <= 12) return { label: 'Good', class: 'aqi-good' };
-            if (pm25 <= 35.4) return { label: 'Moderate', class: 'aqi-moderate' };
-            if (pm25 <= 55.4) return { label: 'Unhealthy (Sensitive)', class: 'aqi-unhealthy-sensitive' };
-            if (pm25 <= 150.4) return { label: 'Unhealthy', class: 'aqi-unhealthy' };
-            if (pm25 <= 250.4) return { label: 'Very Unhealthy', class: 'aqi-very-unhealthy' };
-            return { label: 'Hazardous', class: 'aqi-hazardous' };
-        }
+      // Get AQI category from PM2.5 value
+      function getAqiCategory(pm25) {
+        if (pm25 <= 12) return { label: "Good", class: "aqi-good" };
+        if (pm25 <= 35.4) return { label: "Moderate", class: "aqi-moderate" };
+        if (pm25 <= 55.4)
+          return {
+            label: "Unhealthy (Sensitive)",
+            class: "aqi-unhealthy-sensitive",
+          };
+        if (pm25 <= 150.4)
+          return { label: "Unhealthy", class: "aqi-unhealthy" };
+        if (pm25 <= 250.4)
+          return { label: "Very Unhealthy", class: "aqi-very-unhealthy" };
+        return { label: "Hazardous", class: "aqi-hazardous" };
+      }
 
-        // Get marker color based on PM2.5
-        function getMarkerColor(pm25) {
-            if (pm25 <= 12) return '#00e676';
-            if (pm25 <= 35.4) return '#ffeb3b';
-            if (pm25 <= 55.4) return '#ff9800';
-            if (pm25 <= 150.4) return '#f44336';
-            if (pm25 <= 250.4) return '#9c27b0';
-            return '#7b1fa2';
-        }
+      // Get marker color based on PM2.5
+      function getMarkerColor(pm25) {
+        if (pm25 <= 12) return "#00e676";
+        if (pm25 <= 35.4) return "#ffeb3b";
+        if (pm25 <= 55.4) return "#ff9800";
+        if (pm25 <= 150.4) return "#f44336";
+        if (pm25 <= 250.4) return "#9c27b0";
+        return "#7b1fa2";
+      }
 
-        // Clear existing markers
-        function clearMarkers() {
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-        }
+      // Clear existing markers
+      function clearMarkers() {
+        markers.forEach((m) => map.removeLayer(m));
+        markers = [];
+      }
 
-        // Add markers to map
-        function addMarkers(predictions) {
-            clearMarkers();
-            
-            const bounds = [];
-            predictions.forEach(sensor => {
-                const color = getMarkerColor(sensor.predicted_pm25);
-                const aqi = getAqiCategory(sensor.predicted_pm25);
-                
-                const marker = L.circleMarker([sensor.latitude, sensor.longitude], {
-                    radius: 12,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                }).addTo(map);
+      // Add markers to map
+      function addMarkers(predictions) {
+        clearMarkers();
 
-                marker.bindPopup(`
+        const bounds = [];
+        predictions.forEach((sensor) => {
+          const color = getMarkerColor(sensor.predicted_pm25);
+          const aqi = getAqiCategory(sensor.predicted_pm25);
+
+          const marker = L.circleMarker([sensor.latitude, sensor.longitude], {
+            radius: 12,
+            fillColor: color,
+            color: "#fff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8,
+          }).addTo(map);
+
+          marker.bindPopup(`
                     <div style="text-align: center; min-width: 150px;">
-                        <strong>Station ${sensor.location_id}</strong><br>
+                        <strong>${sensor.name}</strong><br>
                         <span style="font-size: 1.5rem; color: ${color};">${sensor.predicted_pm25.toFixed(1)}</span>
                         <span style="font-size: 0.8rem;">µg/m³</span><br>
                         <span class="aqi-badge ${aqi.class}" style="display: inline-block; margin-top: 5px;">${aqi.label}</span><br>
@@ -564,56 +1709,68 @@
                     </div>
                 `);
 
-                markers.push(marker);
-                bounds.push([sensor.latitude, sensor.longitude]);
-            });
+          markers.push(marker);
+          bounds.push([sensor.latitude, sensor.longitude]);
+        });
 
-            if (bounds.length > 0) {
-                map.fitBounds(bounds, { padding: [50, 50] });
-            }
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [50, 50] });
         }
+      }
 
-        // Update stats display
-        function updateStats(data) {
-            document.getElementById('avgPm25').textContent = data.city_average_pm25.toFixed(1);
-            document.getElementById('numSensors').textContent = data.num_sensors;
-            document.getElementById('numEdges').textContent = data.num_edges;
-            
-            const aqi = getAqiCategory(data.city_average_pm25);
-            const aqiEl = document.getElementById('aqiLevel');
-            aqiEl.textContent = aqi.label.split(' ')[0];
-        }
+      // Update stats display
+      function updateStats(data) {
+        document.getElementById("avgPm25").textContent =
+          data.city_average_pm25.toFixed(1);
+        document.getElementById("numSensors").textContent = data.num_sensors;
+        document.getElementById("numEdges").textContent = data.num_edges;
 
-        // Update explanation
-        function updateExplanation(explanation) {
-            document.getElementById('explanationText').textContent = explanation.summary;
+        const aqi = getAqiCategory(data.city_average_pm25);
+        const aqiEl = document.getElementById("aqiLevel");
+        aqiEl.textContent = aqi.label.split(" ")[0];
+      }
 
-            // Spatial influences
-            const spatialEl = document.getElementById('spatialInfluences');
-            if (explanation.top_spatial_influences && explanation.top_spatial_influences.length > 0) {
-                let html = '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Spatial Influences</h3>';
-                explanation.top_spatial_influences.slice(0, 3).forEach(inf => {
-                    const pct = (inf.weight * 100).toFixed(1);
-                    html += `
+      // Update explanation
+      function updateExplanation(explanation) {
+        document.getElementById("explanationText").textContent =
+          explanation.summary;
+
+        // Spatial influences
+        const spatialEl = document.getElementById("spatialInfluences");
+        if (
+          explanation.top_spatial_influences &&
+          explanation.top_spatial_influences.length > 0
+        ) {
+          let html =
+            '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Spatial Influences</h3>';
+          explanation.top_spatial_influences.slice(0, 3).forEach((inf) => {
+            const pct = (inf.weight * 100).toFixed(1);
+            const srcName = inf.source_name || `Station ${inf.source_id}`;
+            const tgtName = inf.target_name || `Station ${inf.target_id}`;
+            html += `
                         <div class="influence-item">
                             <div>
-                                <span>Station ${inf.source_id} → ${inf.target_id}</span>
+                                <span>${srcName} → ${tgtName}</span>
                                 <div class="influence-bar" style="width: ${pct}%;"></div>
                             </div>
                             <span style="color: #00d9ff;">${pct}%</span>
                         </div>
                     `;
-                });
-                spatialEl.innerHTML = html;
-            }
+          });
+          spatialEl.innerHTML = html;
+        }
 
-            // Temporal influences
-            const temporalEl = document.getElementById('temporalInfluences');
-            if (explanation.top_temporal_influences && explanation.top_temporal_influences.length > 0) {
-                let html = '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Temporal Influences</h3>';
-                explanation.top_temporal_influences.slice(0, 3).forEach(inf => {
-                    const pct = (inf.weight * 100).toFixed(1);
-                    html += `
+        // Temporal influences
+        const temporalEl = document.getElementById("temporalInfluences");
+        if (
+          explanation.top_temporal_influences &&
+          explanation.top_temporal_influences.length > 0
+        ) {
+          let html =
+            '<h3 style="font-size: 0.9rem; color: #8892b0; margin: 15px 0 10px;">Top Temporal Influences</h3>';
+          explanation.top_temporal_influences.slice(0, 3).forEach((inf) => {
+            const pct = (inf.weight * 100).toFixed(1);
+            html += `
                         <div class="influence-item">
                             <div>
                                 <span>${inf.label}</span>
@@ -622,27 +1779,48 @@
                             <span style="color: #00ff88;">${pct}%</span>
                         </div>
                     `;
-                });
-                temporalEl.innerHTML = html;
-            }
+          });
+          temporalEl.innerHTML = html;
         }
+      }
 
-        // Update health impact display
-        function updateHealthImpact(health) {
-            const container = document.getElementById('healthContent');
-            
-            const warningColors = {
-                'Good': { bg: 'rgba(0, 230, 118, 0.2)', border: '#00e676', icon: '✅' },
-                'Moderate': { bg: 'rgba(255, 235, 59, 0.2)', border: '#ffeb3b', icon: '⚠️' },
-                'Unhealthy for Sensitive Groups': { bg: 'rgba(255, 152, 0, 0.2)', border: '#ff9800', icon: '🔶' },
-                'Unhealthy': { bg: 'rgba(244, 67, 54, 0.2)', border: '#f44336', icon: '🔴' },
-                'Very Unhealthy': { bg: 'rgba(156, 39, 176, 0.2)', border: '#9c27b0', icon: '🟣' },
-                'Hazardous': { bg: 'rgba(123, 31, 162, 0.3)', border: '#7b1fa2', icon: '☠️' }
-            };
-            
-            const style = warningColors[health.aqi_category] || warningColors['Moderate'];
-            
-            let html = `
+      // Update health impact display
+      function updateHealthImpact(health) {
+        const container = document.getElementById("healthContent");
+
+        const warningColors = {
+          Good: { bg: "rgba(0, 230, 118, 0.2)", border: "#00e676", icon: "✅" },
+          Moderate: {
+            bg: "rgba(255, 235, 59, 0.2)",
+            border: "#ffeb3b",
+            icon: "⚠️",
+          },
+          "Unhealthy for Sensitive Groups": {
+            bg: "rgba(255, 152, 0, 0.2)",
+            border: "#ff9800",
+            icon: "🔶",
+          },
+          Unhealthy: {
+            bg: "rgba(244, 67, 54, 0.2)",
+            border: "#f44336",
+            icon: "🔴",
+          },
+          "Very Unhealthy": {
+            bg: "rgba(156, 39, 176, 0.2)",
+            border: "#9c27b0",
+            icon: "🟣",
+          },
+          Hazardous: {
+            bg: "rgba(123, 31, 162, 0.3)",
+            border: "#7b1fa2",
+            icon: "☠️",
+          },
+        };
+
+        const style =
+          warningColors[health.aqi_category] || warningColors["Moderate"];
+
+        let html = `
                 <div class="health-warning-box" style="background: ${style.bg}; border-left: 4px solid ${style.border};">
                     <h3>${style.icon} ${health.aqi_category}</h3>
                     <p>${health.health_warning}</p>
@@ -655,119 +1833,955 @@
                     <div class="health-section">
                         <h4>👥 Sensitive Groups at Risk</h4>
                         <ul>
-                            ${health.sensitive_groups.map(g => `<li>${g}</li>`).join('')}
+                            ${health.sensitive_groups.map((g) => `<li>${g}</li>`).join("")}
                         </ul>
                     </div>
                     
                     <div class="health-section">
                         <h4>🫁 Immediate Health Effects</h4>
                         <ul>
-                            ${health.health_effects.map(e => `<li>${e}</li>`).join('')}
+                            ${health.health_effects.map((e) => `<li>${e}</li>`).join("")}
                         </ul>
                     </div>
                     
                     <div class="health-section">
                         <h4>🛡️ Recommended Precautions</h4>
                         <ul>
-                            ${health.precautions.map(p => `<li>${p}</li>`).join('')}
+                            ${health.precautions.map((p) => `<li>${p}</li>`).join("")}
                         </ul>
                     </div>
                     
                     <div class="health-section">
                         <h4>⏳ Long-term Exposure Effects</h4>
                         <ul>
-                            ${health.long_term_effects.map(e => `<li>${e}</li>`).join('')}
+                            ${health.long_term_effects.map((e) => `<li>${e}</li>`).join("")}
                         </ul>
                     </div>
                 </div>
             `;
-            
-            container.innerHTML = html;
-        }
 
-        // Update sensor table
-        function updateTable(predictions) {
-            const tbody = document.getElementById('sensorTableBody');
-            let html = '';
-            
-            predictions.forEach(sensor => {
-                const aqi = getAqiCategory(sensor.predicted_pm25);
-                html += `
+        container.innerHTML = html;
+      }
+
+      // Update sensor table
+      function updateTable(predictions) {
+        const tbody = document.getElementById("sensorTableBody");
+        let html = "";
+
+        predictions.forEach((sensor) => {
+          const aqi = getAqiCategory(sensor.predicted_pm25);
+          html += `
                     <tr>
-                        <td>${sensor.location_id}</td>
+                        <td>${sensor.name}</td>
                         <td>${sensor.latitude.toFixed(4)}, ${sensor.longitude.toFixed(4)}</td>
                         <td><strong>${sensor.predicted_pm25.toFixed(2)}</strong> µg/m³</td>
                         <td>${sensor.data_coverage.toFixed(1)}%</td>
                         <td><span class="aqi-badge ${aqi.class}">${aqi.label}</span></td>
                     </tr>
                 `;
-            });
-            
-            tbody.innerHTML = html;
-        }
-
-        // Main prediction function
-        async function getPrediction() {
-            const city = document.getElementById('citySelect').value;
-            const radius = document.getElementById('radiusSelect').value;
-            const btn = document.getElementById('predictBtn');
-            const loading = document.getElementById('loading');
-            const error = document.getElementById('errorMessage');
-
-            btn.disabled = true;
-            btn.textContent = '⏳ Loading...';
-            loading.classList.add('active');
-            error.classList.remove('active');
-
-            try {
-                const response = await fetch(`${API_BASE}/predict/${city}?radius_km=${radius}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.detail || 'Prediction failed');
-                }
-
-                const data = await response.json();
-                
-                // Update UI
-                addMarkers(data.forecast_pm25);
-                updateStats(data);
-                updateExplanation(data.explanation);
-                updateHealthImpact(data.health_impact);
-                updateTable(data.forecast_pm25);
-
-            } catch (err) {
-                console.error('Prediction error:', err);
-                document.getElementById('errorText').textContent = err.message;
-                error.classList.add('active');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🔮 Get Forecast';
-                loading.classList.remove('active');
-            }
-        }
-
-        // City center coordinates for map
-        const cityCenters = {
-            mumbai: [19.076, 72.8777],
-            delhi: [28.6139, 77.209],
-            bangalore: [12.9716, 77.5946],
-            chennai: [13.0827, 80.2707]
-        };
-
-        // Update map center when city changes
-        document.getElementById('citySelect').addEventListener('change', function() {
-            const center = cityCenters[this.value];
-            if (center && map) {
-                map.setView(center, 11);
-            }
         });
 
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', initMap);
+        tbody.innerHTML = html;
+      }
+
+      // Main prediction function
+      async function getPrediction() {
+        const city = document.getElementById("selectedCityCode").value;
+        if (!city) {
+          document.getElementById("errorText").textContent =
+            "Please select a city first.";
+          document.getElementById("errorMessage").classList.add("active");
+          return;
+        }
+        const radius = document.getElementById("radiusSelect").value;
+        const btn = document.getElementById("predictBtn");
+        const loading = document.getElementById("loading");
+        const error = document.getElementById("errorMessage");
+
+        btn.disabled = true;
+        btn.textContent = "⏳ Loading...";
+        loading.classList.add("active");
+        error.classList.remove("active");
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/predict/${encodeURIComponent(city)}?radius_km=${radius}`,
+            {
+              method: "POST",
+              headers: authHeaders(),
+            },
+          );
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "Prediction failed");
+          }
+
+          const data = await response.json();
+
+          // Update UI
+          addMarkers(data.forecast_pm25);
+          updateStats(data);
+          updateExplanation(data.explanation);
+          updateHealthImpact(data.health_impact);
+          updateTable(data.forecast_pm25);
+        } catch (err) {
+          console.error("Prediction error:", err);
+          document.getElementById("errorText").textContent = err.message;
+          error.classList.add("active");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🔮 Get Forecast";
+          loading.classList.remove("active");
+        }
+      }
+
+      // ==================== City Search Autocomplete ====================
+      let searchTimeout = null;
+      let highlightedIndex = -1;
+      let currentResults = [];
+
+      const searchInput = document.getElementById("citySearchInput");
+      const dropdown = document.getElementById("cityDropdown");
+      const clearBtn = document.getElementById("citySearchClear");
+
+      function clearCitySearch() {
+        searchInput.value = "";
+        document.getElementById("selectedCityCode").value = "";
+        document.getElementById("selectedCityLat").value = "";
+        document.getElementById("selectedCityLon").value = "";
+        clearBtn.style.display = "none";
+        dropdown.classList.remove("active");
+        currentResults = [];
+      }
+
+      function selectCity(city) {
+        searchInput.value = `${city.name}, ${city.state}`;
+        document.getElementById("selectedCityCode").value = city.code;
+        document.getElementById("selectedCityLat").value = city.lat;
+        document.getElementById("selectedCityLon").value = city.lon;
+        clearBtn.style.display = "block";
+        dropdown.classList.remove("active");
+        currentResults = [];
+
+        // Center map on the selected city
+        if (map) {
+          map.setView([city.lat, city.lon], 11);
+        }
+      }
+
+      function renderDropdown(results) {
+        currentResults = results;
+        highlightedIndex = -1;
+        if (results.length === 0) {
+          dropdown.innerHTML =
+            '<div class="city-dropdown-empty">No cities found</div>';
+          dropdown.classList.add("active");
+          return;
+        }
+
+        dropdown.innerHTML = results
+          .map(
+            (c, i) =>
+              `<div class="city-option" data-index="${i}" onmousedown="selectCity(currentResults[${i}])">
+                <span class="city-option-name">${c.name}</span>
+                <span class="city-option-state">${c.state}</span>
+              </div>`,
+          )
+          .join("");
+        dropdown.classList.add("active");
+      }
+
+      function highlightOption(index) {
+        const options = dropdown.querySelectorAll(".city-option");
+        options.forEach((opt) => opt.classList.remove("highlighted"));
+        if (index >= 0 && index < options.length) {
+          options[index].classList.add("highlighted");
+          options[index].scrollIntoView({ block: "nearest" });
+        }
+        highlightedIndex = index;
+      }
+
+      searchInput.addEventListener("input", function () {
+        const query = this.value.trim();
+        clearBtn.style.display = query ? "block" : "none";
+
+        if (query.length < 1) {
+          dropdown.classList.remove("active");
+          return;
+        }
+
+        // Debounce API calls
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+          try {
+            const resp = await fetch(
+              `${API_BASE}/api/cities/search?q=${encodeURIComponent(query)}&limit=10`,
+            );
+            if (!resp.ok) return;
+            const data = await resp.json();
+            renderDropdown(data.cities);
+          } catch (e) {
+            console.error("City search error:", e);
+          }
+        }, 200);
+      });
+
+      searchInput.addEventListener("keydown", function (e) {
+        if (!dropdown.classList.contains("active")) return;
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          highlightOption(
+            Math.min(highlightedIndex + 1, currentResults.length - 1),
+          );
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          highlightOption(Math.max(highlightedIndex - 1, 0));
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (
+            highlightedIndex >= 0 &&
+            highlightedIndex < currentResults.length
+          ) {
+            selectCity(currentResults[highlightedIndex]);
+          }
+        } else if (e.key === "Escape") {
+          dropdown.classList.remove("active");
+        }
+      });
+
+      searchInput.addEventListener("focus", function () {
+        if (currentResults.length > 0) {
+          dropdown.classList.add("active");
+        }
+      });
+
+      // Close dropdown on outside click
+      document.addEventListener("click", function (e) {
+        if (!document.getElementById("citySearchWrapper").contains(e.target)) {
+          dropdown.classList.remove("active");
+        }
+      });
+
+      let userLocationMarker = null;
+
+      // Find the nearest city from user coordinates via the search API
+      async function findNearestCityDynamic(lat, lon) {
+        // Use the search API with a few nearby cities, then pick closest
+        // We'll search for the nearest by trying the API with coordinates
+        // For simplicity, use a local quick search with a preloaded set, or
+        // just query and find the nearest from results
+        try {
+          // Fetch a broad set of cities and find closest
+          const resp = await fetch(`${API_BASE}/api/cities/search?q=&limit=30`);
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          let nearest = null;
+          let minDist = Infinity;
+          for (const city of data.cities) {
+            const dLat = lat - city.lat;
+            const dLon = lon - city.lon;
+            const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+            if (dist < minDist) {
+              minDist = dist;
+              nearest = city;
+            }
+          }
+          return nearest;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // Track user location and fetch forecast for nearest city
+      async function trackMyLocation() {
+        const btn = document.getElementById("locateBtn");
+        const error = document.getElementById("errorMessage");
+        error.classList.remove("active");
+
+        if (!navigator.geolocation) {
+          document.getElementById("errorText").textContent =
+            "Geolocation is not supported by your browser.";
+          error.classList.add("active");
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "⏳ Locating...";
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            const city = await findNearestCityDynamic(latitude, longitude);
+
+            if (city) {
+              selectCity(city);
+
+              // Show user location on map
+              if (userLocationMarker) {
+                map.removeLayer(userLocationMarker);
+              }
+              userLocationMarker = L.marker([latitude, longitude], {
+                icon: L.divIcon({
+                  className: "",
+                  html: '<div style="background:#6366f1;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px rgba(99,102,241,0.6);"></div>',
+                  iconSize: [16, 16],
+                  iconAnchor: [8, 8],
+                }),
+              })
+                .addTo(map)
+                .bindPopup(
+                  `<strong>📍 Your Location</strong><br>${latitude.toFixed(4)}, ${longitude.toFixed(4)}<br>Nearest city: <b>${city.name}</b>`,
+                );
+
+              btn.disabled = false;
+              btn.textContent = "📍 Track My Location";
+              await getPrediction();
+            } else {
+              btn.disabled = false;
+              btn.textContent = "📍 Track My Location";
+              document.getElementById("errorText").textContent =
+                "Could not find a nearby city.";
+              error.classList.add("active");
+            }
+          },
+          (err) => {
+            btn.disabled = false;
+            btn.textContent = "📍 Track My Location";
+            const messages = {
+              1: "Location access denied. Please enable location permissions.",
+              2: "Unable to determine your location. Please try again.",
+              3: "Location request timed out. Please try again.",
+            };
+            document.getElementById("errorText").textContent =
+              messages[err.code] || "Failed to get location.";
+            error.classList.add("active");
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+        );
+      }
+
+      // Initialize on load
+      document.addEventListener("DOMContentLoaded", function () {
+        initMap();
+        // Set initial clear button visibility
+        if (searchInput.value.trim()) {
+          clearBtn.style.display = "block";
+        }
+        // Check auth state
+        refreshAuthUI();
+        // Health profile checkbox styling
+        document.querySelectorAll(".hp-checkbox input").forEach((cb) => {
+          cb.addEventListener("change", function () {
+            this.closest(".hp-checkbox").classList.toggle(
+              "selected",
+              this.checked,
+            );
+          });
+        });
+      });
+
+      // ==================== Auth & Feature Logic ====================
+
+      // Token helpers
+      function getToken() {
+        return localStorage.getItem("aq_token");
+      }
+      function setToken(t) {
+        localStorage.setItem("aq_token", t);
+      }
+      function clearToken() {
+        localStorage.removeItem("aq_token");
+        localStorage.removeItem("aq_user");
+      }
+      function getUser() {
+        try {
+          return JSON.parse(localStorage.getItem("aq_user"));
+        } catch {
+          return null;
+        }
+      }
+      function setUser(u) {
+        localStorage.setItem("aq_user", JSON.stringify(u));
+      }
+      function isLoggedIn() {
+        return !!getToken();
+      }
+      function authHeaders() {
+        const t = getToken();
+        return t
+          ? { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }
+          : { "Content-Type": "application/json" };
+      }
+
+      // Toast notification
+      let toastTimer = null;
+      function showToast(message, type = "success") {
+        const el = document.getElementById("toast");
+        el.textContent = (type === "success" ? "✅ " : "❌ ") + message;
+        el.className = `toast ${type} active`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("active"), 3500);
+      }
+
+      // Refresh header UI based on auth state
+      function refreshAuthUI() {
+        const guest = document.getElementById("headerGuest");
+        const userEl = document.getElementById("headerUser");
+        if (isLoggedIn()) {
+          guest.classList.add("hidden");
+          userEl.classList.remove("hidden");
+          const u = getUser();
+          if (u) {
+            document.getElementById("userDisplayName").textContent = u.username;
+            document.getElementById("userAvatar").textContent = u.username
+              .charAt(0)
+              .toUpperCase();
+          }
+        } else {
+          guest.classList.remove("hidden");
+          userEl.classList.add("hidden");
+        }
+      }
+
+      // Auth Modal
+      function openAuthModal(tab) {
+        document.getElementById("authModal").classList.add("active");
+        switchAuthTab(tab || "login");
+      }
+      function closeAuthModal() {
+        document.getElementById("authModal").classList.remove("active");
+        document.getElementById("loginError").classList.remove("active");
+        document.getElementById("registerError").classList.remove("active");
+      }
+      function switchAuthTab(tab) {
+        const isLogin = tab === "login";
+        document.getElementById("tabLogin").classList.toggle("active", isLogin);
+        document
+          .getElementById("tabRegister")
+          .classList.toggle("active", !isLogin);
+        document.getElementById("loginForm").style.display = isLogin
+          ? "block"
+          : "none";
+        document.getElementById("registerForm").style.display = isLogin
+          ? "none"
+          : "block";
+        document.getElementById("authModalTitle").textContent = isLogin
+          ? "Welcome Back"
+          : "Create Account";
+      }
+
+      // Login handler
+      async function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById("loginSubmit");
+        const errEl = document.getElementById("loginError");
+        errEl.classList.remove("active");
+        btn.disabled = true;
+        btn.textContent = "Logging in...";
+        try {
+          const resp = await fetch(`${API_BASE}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: document.getElementById("loginEmail").value,
+              password: document.getElementById("loginPassword").value,
+            }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.detail || "Login failed");
+          setToken(data.token);
+          setUser(data.user);
+          closeAuthModal();
+          refreshAuthUI();
+          showToast(`Welcome back, ${data.user.username}!`);
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.classList.add("active");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Log In";
+        }
+      }
+
+      // Register handler
+      async function handleRegister(e) {
+        e.preventDefault();
+        const btn = document.getElementById("registerSubmit");
+        const errEl = document.getElementById("registerError");
+        errEl.classList.remove("active");
+        btn.disabled = true;
+        btn.textContent = "Creating account...";
+        try {
+          const resp = await fetch(`${API_BASE}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: document.getElementById("regUsername").value,
+              email: document.getElementById("regEmail").value,
+              password: document.getElementById("regPassword").value,
+            }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.detail || "Registration failed");
+          setToken(data.token);
+          setUser(data.user);
+          closeAuthModal();
+          refreshAuthUI();
+          showToast(`Welcome, ${data.user.username}! Account created.`);
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.classList.add("active");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Create Account";
+        }
+      }
+
+      // Logout
+      function logout() {
+        clearToken();
+        refreshAuthUI();
+        closeUserDropdown();
+        closeFeaturePanel();
+        showToast("Logged out successfully");
+      }
+
+      // User dropdown
+      function toggleUserDropdown() {
+        document.getElementById("userDropdown").classList.toggle("active");
+      }
+      function closeUserDropdown() {
+        document.getElementById("userDropdown").classList.remove("active");
+      }
+      document.addEventListener("click", function (e) {
+        if (!document.getElementById("userMenu").contains(e.target)) {
+          closeUserDropdown();
+        }
+      });
+
+      // Feature Panel
+      function openFeaturePanel(tab) {
+        closeUserDropdown();
+        document.getElementById("fpOverlay").classList.add("active");
+        document.getElementById("featurePanel").classList.add("active");
+        switchFpTab(tab || "locations");
+      }
+      function closeFeaturePanel() {
+        document.getElementById("fpOverlay").classList.remove("active");
+        document.getElementById("featurePanel").classList.remove("active");
+      }
+      function switchFpTab(tab) {
+        document
+          .querySelectorAll(".fp-tab")
+          .forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+        document
+          .querySelectorAll(".fp-content")
+          .forEach((c) => c.classList.remove("active"));
+        const map = {
+          locations: "fpLocations",
+          alerts: "fpAlerts",
+          health: "fpHealth",
+          history: "fpHistory",
+        };
+        document.getElementById(map[tab]).classList.add("active");
+        // Load data for the tab
+        if (tab === "locations") loadSavedLocations();
+        else if (tab === "alerts") loadAlerts();
+        else if (tab === "health") loadHealthProfile();
+        else if (tab === "history") loadHistory();
+      }
+
+      // ==================== Saved Locations ====================
+      async function loadSavedLocations() {
+        if (!isLoggedIn()) return;
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/locations`, {
+            headers: authHeaders(),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            return;
+          }
+          const data = await resp.json();
+          const el = document.getElementById("savedLocationsList");
+          if (!data.locations || data.locations.length === 0) {
+            el.innerHTML =
+              '<div class="empty-state"><div class="empty-state-icon">📌</div><p>No saved locations yet.</p></div>';
+            return;
+          }
+          el.innerHTML = data.locations
+            .map(
+              (loc) => `
+            <div class="saved-loc-item">
+              <div class="saved-loc-info">
+                <div class="saved-loc-name">${loc.city_name}</div>
+                <div class="saved-loc-state">${loc.state || ""}</div>
+              </div>
+              <div class="saved-loc-actions">
+                <button class="btn-icon" title="Forecast this city" onclick="forecastSavedCity('${loc.city_name}', ${loc.lat}, ${loc.lon})">🔮</button>
+                <button class="btn-icon danger" title="Remove" onclick="removeSavedLocation('${loc.city_name}')">🗑️</button>
+              </div>
+            </div>
+          `,
+            )
+            .join("");
+        } catch (err) {
+          console.error("Load locations error:", err);
+        }
+      }
+
+      async function saveCurrentCity() {
+        if (!isLoggedIn()) {
+          openAuthModal("login");
+          return;
+        }
+        const name = document
+          .getElementById("citySearchInput")
+          .value.split(",")[0]
+          .trim();
+        const lat = parseFloat(
+          document.getElementById("selectedCityLat").value,
+        );
+        const lon = parseFloat(
+          document.getElementById("selectedCityLon").value,
+        );
+        if (!name || isNaN(lat)) {
+          showToast("Select a city first", "error");
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/locations`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ city_name: name, state: "", lat, lon }),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            openAuthModal("login");
+            return;
+          }
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.detail || "Failed to save");
+          showToast(`Saved ${name}`);
+          loadSavedLocations();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+
+      async function removeSavedLocation(cityName) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/api/user/locations/${encodeURIComponent(cityName)}`,
+            {
+              method: "DELETE",
+              headers: authHeaders(),
+            },
+          );
+          if (resp.ok) {
+            showToast(`Removed ${cityName}`);
+            loadSavedLocations();
+          }
+        } catch (err) {
+          showToast("Failed to remove", "error");
+        }
+      }
+
+      function forecastSavedCity(name, lat, lon) {
+        document.getElementById("citySearchInput").value = name;
+        document.getElementById("selectedCityCode").value = name.toLowerCase();
+        document.getElementById("selectedCityLat").value = lat;
+        document.getElementById("selectedCityLon").value = lon;
+        document.getElementById("citySearchClear").style.display = "block";
+        if (map) map.setView([lat, lon], 11);
+        closeFeaturePanel();
+        getPrediction();
+      }
+
+      // ==================== Alerts ====================
+      async function loadAlerts() {
+        if (!isLoggedIn()) return;
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/alerts`, {
+            headers: authHeaders(),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            return;
+          }
+          const data = await resp.json();
+          const el = document.getElementById("alertsList");
+          if (!data.alerts || data.alerts.length === 0) {
+            el.innerHTML =
+              '<div class="empty-state"><div class="empty-state-icon">🔕</div><p>No alerts configured.</p></div>';
+            return;
+          }
+          el.innerHTML = data.alerts
+            .map(
+              (a) => `
+            <div class="alert-item">
+              <div class="alert-item-header">
+                <span class="alert-city">${a.city_name}</span>
+                <div class="alert-controls">
+                  <button class="btn-icon danger" onclick="removeAlert('${a.city_name}')">🗑️</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="alert-threshold-label">PM2.5 threshold:</span>
+                <input class="alert-threshold-input" type="number" value="${a.threshold_pm25}" min="1" max="500"
+                       onchange="updateAlert('${a.city_name}', this.value, ${a.enabled})" />
+                <span class="alert-threshold-label">µg/m³</span>
+                <div class="toggle-switch ${a.enabled ? "active" : ""}" onclick="toggleAlertEnabled(this, '${a.city_name}', ${a.threshold_pm25})"></div>
+              </div>
+            </div>
+          `,
+            )
+            .join("");
+        } catch (err) {
+          console.error("Load alerts error:", err);
+        }
+      }
+
+      async function addAlertForCurrentCity() {
+        if (!isLoggedIn()) {
+          openAuthModal("login");
+          return;
+        }
+        const name = document
+          .getElementById("citySearchInput")
+          .value.split(",")[0]
+          .trim();
+        if (!name) {
+          showToast("Select a city first", "error");
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/alerts`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              city_name: name,
+              threshold_pm25: 55.4,
+              enabled: true,
+            }),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            openAuthModal("login");
+            return;
+          }
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.detail || "Failed to add alert");
+          showToast(`Alert set for ${name}`);
+          loadAlerts();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+
+      async function updateAlert(cityName, threshold, enabled) {
+        try {
+          await fetch(`${API_BASE}/api/user/alerts`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              city_name: cityName,
+              threshold_pm25: parseFloat(threshold),
+              enabled: !!enabled,
+            }),
+          });
+        } catch (err) {
+          showToast("Failed to update", "error");
+        }
+      }
+
+      function toggleAlertEnabled(el, cityName, threshold) {
+        const active = !el.classList.contains("active");
+        el.classList.toggle("active", active);
+        updateAlert(cityName, threshold, active);
+      }
+
+      async function removeAlert(cityName) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/api/user/alerts/${encodeURIComponent(cityName)}`,
+            {
+              method: "DELETE",
+              headers: authHeaders(),
+            },
+          );
+          if (resp.ok) {
+            showToast(`Alert removed for ${cityName}`);
+            loadAlerts();
+          }
+        } catch (err) {
+          showToast("Failed to remove", "error");
+        }
+      }
+
+      // ==================== Health Profile ====================
+      async function loadHealthProfile() {
+        if (!isLoggedIn()) return;
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/health-profile`, {
+            headers: authHeaders(),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            return;
+          }
+          const data = await resp.json();
+          if (data.profile) {
+            const p = data.profile;
+            document.getElementById("hpAgeGroup").value =
+              p.age_group || "adult";
+            document.getElementById("hpOutdoorHours").value =
+              p.outdoor_hours || 2;
+            document.getElementById("hpOutdoorVal").textContent =
+              p.outdoor_hours || 2;
+            // Check conditions
+            const conditions =
+              typeof p.conditions === "string"
+                ? JSON.parse(p.conditions)
+                : p.conditions || [];
+            document.querySelectorAll("#hpConditions input").forEach((cb) => {
+              const checked = conditions.includes(cb.value);
+              cb.checked = checked;
+              cb.closest(".hp-checkbox").classList.toggle("selected", checked);
+            });
+          }
+        } catch (err) {
+          console.error("Load health profile error:", err);
+        }
+      }
+
+      async function saveHealthProfile(e) {
+        e.preventDefault();
+        if (!isLoggedIn()) {
+          openAuthModal("login");
+          return;
+        }
+        const conditions = [];
+        document
+          .querySelectorAll("#hpConditions input:checked")
+          .forEach((cb) => conditions.push(cb.value));
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/health-profile`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              age_group: document.getElementById("hpAgeGroup").value,
+              conditions: conditions,
+              outdoor_hours: parseFloat(
+                document.getElementById("hpOutdoorHours").value,
+              ),
+            }),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            openAuthModal("login");
+            return;
+          }
+          if (!resp.ok) {
+            const d = await resp.json();
+            throw new Error(d.detail);
+          }
+          showToast("Health profile saved");
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+
+      // ==================== Forecast History ====================
+      async function loadHistory() {
+        if (!isLoggedIn()) return;
+        try {
+          const resp = await fetch(`${API_BASE}/api/user/history?limit=30`, {
+            headers: authHeaders(),
+          });
+          if (resp.status === 401) {
+            clearToken();
+            refreshAuthUI();
+            return;
+          }
+          const data = await resp.json();
+          const el = document.getElementById("historyContent");
+          if (!data.history || data.history.length === 0) {
+            el.innerHTML =
+              '<div class="empty-state"><div class="empty-state-icon">📜</div><p>No forecast history yet.</p></div>';
+            return;
+          }
+          let html =
+            '<table class="history-table"><thead><tr><th>Date</th><th>City</th><th>PM2.5</th><th>AQI</th><th>Sensors</th></tr></thead><tbody>';
+          data.history.forEach((h) => {
+            const aqi = getAqiCategory(h.avg_pm25);
+            const dateStr = new Date(h.created_at).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            html += `<tr>
+              <td>${dateStr}</td>
+              <td>${h.city_name}</td>
+              <td><strong>${h.avg_pm25}</strong></td>
+              <td><span class="aqi-badge ${aqi.class}" style="font-size:0.75rem;padding:2px 8px;">${aqi.label}</span></td>
+              <td>${h.num_sensors}</td>
+            </tr>`;
+          });
+          html += "</tbody></table>";
+          el.innerHTML = html;
+        } catch (err) {
+          console.error("Load history error:", err);
+        }
+      }
+
+      async function exportHistory(format) {
+        if (!isLoggedIn()) return;
+        try {
+          const resp = await fetch(
+            `${API_BASE}/api/user/history/export?format=${format}`,
+            { headers: authHeaders() },
+          );
+          if (!resp.ok) throw new Error("Export failed");
+          if (format === "json") {
+            const data = await resp.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], {
+              type: "application/json",
+            });
+            downloadBlob(blob, "forecast_history.json");
+          } else {
+            const text = await resp.text();
+            const blob = new Blob([text], { type: "text/csv" });
+            downloadBlob(blob, "forecast_history.csv");
+          }
+          showToast(`Exported as ${format.toUpperCase()}`);
+        } catch (err) {
+          showToast("Export failed", "error");
+        }
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // ==================== Modify getPrediction to include auth header ====================
+      const _origGetPrediction = getPrediction; // not used, redefining below
     </script>
-</body>
+  </body>
 </html>

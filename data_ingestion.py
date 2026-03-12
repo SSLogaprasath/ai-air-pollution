@@ -56,11 +56,40 @@ atexit.register(_cleanup_client)
 
 # City bounding boxes (min_lat, min_lon, max_lat, max_lon)
 CITY_BBOXES: dict[str, tuple[float, float, float, float]] = {
+    # South India
     "tiruchirappalli": (10.7000, 78.6000, 10.9500, 78.8500),
-    "delhi": (28.4000, 76.8000, 28.9000, 77.4000),
-    "mumbai": (18.8900, 72.7500, 19.2700, 73.0500),
-    "bangalore": (12.8500, 77.4500, 13.1500, 77.7500),
     "chennai": (12.9000, 80.1000, 13.2500, 80.3500),
+    "bangalore": (12.8500, 77.4500, 13.1500, 77.7500),
+    "hyderabad": (17.2500, 78.2500, 17.5500, 78.6500),
+    "coimbatore": (10.9000, 76.9000, 11.1000, 77.1000),
+    "kochi": (9.9000, 76.2000, 10.1000, 76.4000),
+    "visakhapatnam": (17.6000, 83.1500, 17.8500, 83.4000),
+    "madurai": (9.8500, 78.0500, 10.0500, 78.2500),
+    "thiruvananthapuram": (8.4000, 76.8500, 8.6000, 77.0500),
+    # North India
+    "delhi": (28.4000, 76.8000, 28.9000, 77.4000),
+    "lucknow": (26.7500, 80.8500, 27.0000, 81.0500),
+    "jaipur": (26.8000, 75.7000, 27.0000, 75.9000),
+    "chandigarh": (30.6500, 76.6800, 30.8000, 76.8500),
+    "varanasi": (25.2500, 82.9000, 25.4000, 83.1000),
+    "agra": (27.1000, 77.9000, 27.2500, 78.1000),
+    "patna": (25.5500, 85.0500, 25.7000, 85.2500),
+    "amritsar": (31.5500, 74.8000, 31.7500, 74.9500),
+    # West India
+    "mumbai": (18.8900, 72.7500, 19.2700, 73.0500),
+    "pune": (18.4000, 73.7500, 18.6500, 74.0000),
+    "ahmedabad": (22.9500, 72.5000, 23.1500, 72.7000),
+    "nagpur": (21.0500, 79.0000, 21.2500, 79.1500),
+    "goa": (15.3500, 73.8500, 15.5500, 74.0500),
+    # East India
+    "kolkata": (22.4000, 88.2000, 22.7000, 88.5000),
+    "bhubaneswar": (20.2000, 85.7500, 20.3500, 85.9000),
+    "guwahati": (26.1000, 91.6500, 26.2500, 91.8500),
+    "ranchi": (23.2500, 85.2500, 23.4500, 85.4500),
+    # Central India
+    "bhopal": (23.1500, 77.3000, 23.3500, 77.5000),
+    "indore": (22.6000, 75.7500, 22.8500, 75.9500),
+    "raipur": (21.1800, 81.5500, 21.3500, 81.7500),
 }
 
 # API rate limit configuration
@@ -196,7 +225,8 @@ def distance_matrix_to_edge_index(
 
 def fetch_city_graph(
     city: str = "delhi",
-    radius_km: int = 10
+    radius_km: int = 10,
+    bbox: Optional[tuple[float, float, float, float]] = None
 ) -> Data:
     """
     Fetch sensor locations for a city and build a graph structure.
@@ -206,9 +236,10 @@ def fetch_city_graph(
     and creates a PyTorch Geometric Data object.
 
     Args:
-        city: City name (default: 'delhi'). Supported cities:
-              'tiruchirappalli', 'delhi', 'mumbai', 'bangalore', 'chennai'
+        city: City name (default: 'delhi').
         radius_km: Maximum distance in km for connecting sensors (default: 10)
+        bbox: Optional explicit bounding box (min_lat, min_lon, max_lat, max_lon).
+              If provided, overrides the city lookup.
 
     Returns:
         PyG Data object containing:
@@ -218,17 +249,30 @@ def fetch_city_graph(
             - coords: List of (lat, lon) tuples
 
     Raises:
-        ValueError: If city is not in the supported city list
+        ValueError: If city is not in CITY_BBOXES and no bbox provided
     """
-    city_lower = city.lower()
-    if city_lower not in CITY_BBOXES:
-        raise ValueError(
-            f"City '{city}' not supported. "
-            f"Available cities: {list(CITY_BBOXES.keys())}"
-        )
-
-    bbox = CITY_BBOXES[city_lower]
-    min_lat, min_lon, max_lat, max_lon = bbox
+    if bbox is not None:
+        min_lat, min_lon, max_lat, max_lon = bbox
+    else:
+        city_lower = city.lower()
+        if city_lower not in CITY_BBOXES:
+            # Try the dynamic cities database as fallback
+            try:
+                from indian_cities import get_city_bbox
+                dynamic_bbox = get_city_bbox(city)
+                if dynamic_bbox is not None:
+                    min_lat, min_lon, max_lat, max_lon = dynamic_bbox
+                else:
+                    raise ValueError(
+                        f"City '{city}' not found in any city database."
+                    )
+            except ImportError:
+                raise ValueError(
+                    f"City '{city}' not supported. "
+                    f"Available cities: {list(CITY_BBOXES.keys())}"
+                )
+        else:
+            min_lat, min_lon, max_lat, max_lon = CITY_BBOXES[city_lower]
 
     # Get singleton OpenAQ client
     client = _get_openaq_client()
@@ -254,20 +298,23 @@ def fetch_city_graph(
 
     print(f"Found {len(locations)} sensor locations")
 
-    # Extract static features: ID, Latitude, Longitude
+    # Extract static features: ID, Latitude, Longitude, Name
     location_ids = []
     coords = []
     features = []
+    location_names = []
 
     for loc in locations:
         loc_id = loc.id
         lat = loc.coordinates.latitude
         lon = loc.coordinates.longitude
+        name = getattr(loc, 'name', None) or f"Station {loc_id}"
 
         if lat is not None and lon is not None:
             location_ids.append(loc_id)
             coords.append((lat, lon))
             features.append([float(loc_id), lat, lon])
+            location_names.append(name)
 
     if not features:
         print("No valid coordinates found. Returning empty graph.")
@@ -296,7 +343,8 @@ def fetch_city_graph(
         x=x,
         edge_index=edge_index,
         location_ids=location_ids,
-        coords=coords
+        coords=coords,
+        location_names=location_names
     )
 
     return data
